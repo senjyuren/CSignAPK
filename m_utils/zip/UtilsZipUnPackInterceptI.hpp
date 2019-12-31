@@ -14,11 +14,11 @@ class UtilsZipUnPackInterceptI
 public:
     virtual ~UtilsZipUnPackInterceptI();
 
-    virtual void unPackStart(const Jchar *name) = 0;
+    virtual void unPackStart(const Jchar *name, const Jchar *path) = 0;
 
-    virtual void unPackStream(const Jchar *name, const Jbyte *v, Jint vLen) = 0;
+    virtual void unPackStream(const Jchar *name, const Jchar *path, const Jbyte *v, Jint vLen) = 0;
 
-    virtual void unPackEnd(const Jchar *name) = 0;
+    virtual void unPackEnd(const Jchar *name, const Jchar *path) = 0;
 };
 
 UtilsZipUnPackInterceptI::~UtilsZipUnPackInterceptI() = default;

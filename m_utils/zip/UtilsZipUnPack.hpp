@@ -16,13 +16,16 @@ class UtilsZipUnPack
 {
 private:
     constexpr static Jint FILE_NAME_SIZE  = 256;
-    constexpr static Jint READ_CACHE_SIZE = 2048;
+    constexpr static Jint READ_CACHE_SIZE = 1024;
+
+    constexpr static Jchar PATH_SYMBOL[] = "/";
 
     unzFile       mUnzFile;
     unz_file_info mUnzFileInfo;
 
-    Jchar mFileName[FILE_NAME_SIZE];
-    Jchar mReadCache[READ_CACHE_SIZE];
+    std::string mOutPath;
+    Jchar       mFileName[FILE_NAME_SIZE];
+    Jchar       mReadCache[READ_CACHE_SIZE];
 
     std::list<UtilsZipUnPackInterceptI *> mIntercepts;
 
@@ -35,16 +38,17 @@ public:
 
     void stream(const Jchar *in, const Jchar *out) override;
 
-    void notifyStart(const Jchar *name);
+    void notifyStart(const Jchar *name, const Jchar *path);
 
-    void notifyEnd(const Jchar *name);
+    void notifyEnd(const Jchar *name, const Jchar *path);
 
-    void notifyStream(const Jchar *name, const Jbyte *v, Jint vLen);
+    void notifyStream(const Jchar *name, const Jchar *path, const Jbyte *v, Jint vLen);
 };
 
 UtilsZipUnPack::UtilsZipUnPack()
         : mUnzFile{}
           , mUnzFileInfo{}
+          , mOutPath{}
           , mFileName{}
           , mReadCache{}
 {
@@ -64,13 +68,12 @@ void UtilsZipUnPack::stream(const Jchar *in, const Jchar *out)
 {
     Jint readLen = 0;
 
-    printf("%s\r\n", out);
     this->mUnzFile = unzOpen(in);
     if (this->mUnzFile == nullptr)
         return;
 
     unzGoToFirstFile(this->mUnzFile);
-    while (unzGoToNextFile(this->mUnzFile) == UNZ_OK)
+    do
     {
         if (unzGetCurrentFileInfo(
                 this->mUnzFile,
@@ -87,7 +90,11 @@ void UtilsZipUnPack::stream(const Jchar *in, const Jchar *out)
         if (unzOpenCurrentFile(this->mUnzFile) != UNZ_OK)
             continue;
 
-        this->notifyStart(this->mFileName);
+        this->mOutPath.clear();
+        this->mOutPath.append(out)
+                .append(PATH_SYMBOL)
+                .append(this->mFileName);
+        this->notifyStart(this->mFileName, this->mOutPath.c_str());
 
         do
         {
@@ -95,32 +102,37 @@ void UtilsZipUnPack::stream(const Jchar *in, const Jchar *out)
             if (readLen <= 0)
                 break;
 
-            this->notifyStream(this->mFileName, reinterpret_cast<Jbyte *>(this->mReadCache), readLen);
+            this->notifyStream(
+                    this->mFileName,
+                    this->mOutPath.c_str(),
+                    reinterpret_cast<Jbyte *>(this->mReadCache),
+                    readLen
+            );
         } while (readLen == sizeof(this->mReadCache));
 
-        this->notifyEnd(this->mFileName);
+        this->notifyEnd(this->mFileName, this->mOutPath.c_str());
         unzCloseCurrentFile(this->mUnzFile);
-    }
+    } while (unzGoToNextFile(this->mUnzFile) == UNZ_OK);
 
     unzClose(this->mUnzFile);
 }
 
-void UtilsZipUnPack::notifyStart(const Jchar *name)
+void UtilsZipUnPack::notifyStart(const Jchar *name, const Jchar *path)
 {
     for (const auto &v :this->mIntercepts)
-        v->unPackStart(name);
+        v->unPackStart(name, path);
 }
 
-void UtilsZipUnPack::notifyEnd(const Jchar *name)
+void UtilsZipUnPack::notifyEnd(const Jchar *name, const Jchar *path)
 {
     for (const auto &v : this->mIntercepts)
-        v->unPackEnd(name);
+        v->unPackEnd(name, path);
 }
 
-void UtilsZipUnPack::notifyStream(const Jchar *name, const Jbyte *v, Jint vLen)
+void UtilsZipUnPack::notifyStream(const Jchar *name, const Jchar *path, const Jbyte *v, Jint vLen)
 {
     for (const auto &intercept : this->mIntercepts)
-        intercept->unPackStream(name, v, vLen);
+        intercept->unPackStream(name, path, v, vLen);
 }
 
 }

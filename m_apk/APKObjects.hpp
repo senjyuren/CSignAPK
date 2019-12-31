@@ -38,9 +38,9 @@ private:
     std::shared_ptr<UtilsPKCSAdapter> mPKCSAdapter;
     std::vector<Jbyte>                mPKCSValue;
 
-    std::shared_ptr<UtilsSHAAdapter>  mSHAAdapter;
-    std::vector<Jbyte>                mSHAValue;
-    std::string                       mSHABase64Value;
+    std::shared_ptr<UtilsSHAAdapter> mSHAAdapter;
+    std::vector<Jbyte>               mSHAValue;
+    std::string                      mSHABase64Value;
 
 public:
     class Builder
@@ -75,11 +75,11 @@ public:
 
     ~APKObjects() override;
 
-    void unPackStart(const Jchar *name) override;
+    void unPackStart(const Jchar *name, const Jchar *path) override;
 
-    void unPackEnd(const Jchar *name) override;
+    void unPackEnd(const Jchar *name, const Jchar *path) override;
 
-    void unPackStream(const Jchar *name, const Jbyte *v, Jint vLen) override;
+    void unPackStream(const Jchar *name, const Jchar *path, const Jbyte *v, Jint vLen) override;
 
     void manifestBlock(const Jchar *name, const Jchar *v, Jint vLen) override;
 
@@ -205,13 +205,13 @@ APKObjects::~APKObjects()
     delete (this->mBuilder);
 }
 
-void APKObjects::unPackStart(const Jchar *)
+void APKObjects::unPackStart(const Jchar *, const Jchar *path)
 {
     this->mSHAAdapter->getSHA1().sha1Ready();
     this->mSHAAdapter->getSHA256().sha256Ready();
 }
 
-void APKObjects::unPackEnd(const Jchar *name)
+void APKObjects::unPackEnd(const Jchar *name, const Jchar *path)
 {
     APKLocalBeanFileSignedCon sign;
 
@@ -234,7 +234,7 @@ void APKObjects::unPackEnd(const Jchar *name)
         this->mFileSign.update(APKLocalBeanFileSignedVar::NAME, APKLocalBeanFileSignedCon().setName(name), sign);
 }
 
-void APKObjects::unPackStream(const Jchar *, const Jbyte *v, Jint vLen)
+void APKObjects::unPackStream(const Jchar *, const Jchar *path, const Jbyte *v, Jint vLen)
 {
     this->mSHAAdapter->getSHA1().sha1Process(v, vLen);
     this->mSHAAdapter->getSHA256().sha256Process(v, vLen);

@@ -4,8 +4,9 @@
 #define CSIGNAPK_KERNEL_HPP
 
 #include <iostream>
+#include <fstream>
+#include <filesystem>
 #include <memory>
-
 #include <vector>
 #include <string>
 #include <list>
@@ -20,8 +21,13 @@ using Jbool = bool;
 using Jsize = size_t;
 
 #include "m_utils/UtilsHEX.hpp"
+#include "m_utils/UtilsString.hpp"
+#include "m_utils/UtilsBase64.hpp"
+
 #include "m_utils/UtilsZip.hpp"
 #include "m_utils/UtilsSHA.hpp"
+#include "m_utils/UtilsPKCS.hpp"
+
 #include "m_apk/APKObjectsQueue.hpp"
 
 #endif //CSIGNAPK_KERNEL_HPP

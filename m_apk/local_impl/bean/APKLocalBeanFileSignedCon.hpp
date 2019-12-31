@@ -12,11 +12,11 @@ inline namespace apk
 class APKLocalBeanFileSignedCon
 {
 private:
-    Jint        mID;
-    Jint        mFileID;
-    std::string mName;
-    std::string mSHA1;
-    std::string mSHA256;
+    Jint               mID;
+    Jint               mFileID;
+    std::string        mName;
+    std::vector<Jbyte> mSHA1;
+    std::vector<Jbyte> mSHA256;
 
 public:
     APKLocalBeanFileSignedCon();
@@ -27,9 +27,9 @@ public:
 
     APKLocalBeanFileSignedCon &setName(const Jchar *v);
 
-    APKLocalBeanFileSignedCon &setSHA1(const Jchar *v);
+    APKLocalBeanFileSignedCon &setSHA1(const Jbyte *v, Jint vLen);
 
-    APKLocalBeanFileSignedCon &setSHA256(const Jchar *v);
+    APKLocalBeanFileSignedCon &setSHA256(const Jbyte *v, Jint vLen);
 
     Jint getID();
 
@@ -37,9 +37,9 @@ public:
 
     const std::string &getName();
 
-    const std::string &getSHA1();
+    const std::vector<Jbyte> &getSHA1();
 
-    const std::string &getSHA256();
+    const std::vector<Jbyte> &getSHA256();
 };
 
 APKLocalBeanFileSignedCon::APKLocalBeanFileSignedCon()
@@ -69,15 +69,21 @@ APKLocalBeanFileSignedCon &APKLocalBeanFileSignedCon::setName(const Jchar *v)
     return (*this);
 }
 
-APKLocalBeanFileSignedCon &APKLocalBeanFileSignedCon::setSHA1(const Jchar *v)
+APKLocalBeanFileSignedCon &APKLocalBeanFileSignedCon::setSHA1(const Jbyte *v, Jint vLen)
 {
-    this->mSHA1.append(v);
+    Jint i = 0;
+
+    for (i = 0; i < vLen; ++i)
+        this->mSHA1.push_back(v[i]);
     return (*this);
 }
 
-APKLocalBeanFileSignedCon &APKLocalBeanFileSignedCon::setSHA256(const Jchar *v)
+APKLocalBeanFileSignedCon &APKLocalBeanFileSignedCon::setSHA256(const Jbyte *v, Jint vLen)
 {
-    this->mSHA256.append(v);
+    Jint i = 0;
+
+    for (i = 0; i < vLen; ++i)
+        this->mSHA256.push_back(v[i]);
     return (*this);
 }
 
@@ -96,12 +102,12 @@ const std::string &APKLocalBeanFileSignedCon::getName()
     return this->mName;
 }
 
-const std::string &APKLocalBeanFileSignedCon::getSHA1()
+const std::vector<Jbyte> &APKLocalBeanFileSignedCon::getSHA1()
 {
     return this->mSHA1;
 }
 
-const std::string &APKLocalBeanFileSignedCon::getSHA256()
+const std::vector<Jbyte> &APKLocalBeanFileSignedCon::getSHA256()
 {
     return this->mSHA256;
 }

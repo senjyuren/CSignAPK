@@ -23,8 +23,8 @@ public:
 private:
     Builder *mBuilder;
 
-    UtilsSHA1I   &mSHA1;
-    UtilsSHA256I &mSHA256;
+    UtilsSHA1I   *mSHA1;
+    UtilsSHA256I *mSHA256;
 
 public:
     class Builder
@@ -55,25 +55,19 @@ public:
 };
 
 UtilsSHAAdapter::Builder::Builder()
-        : mSHA1{new UtilsSHA1WithOpenSSL()}
-          , mSHA256{new UtilsSHA256WithOpenSSL()}
+        : mSHA1{}
+          , mSHA256{}
 {
 }
 
 UtilsSHAAdapter::Builder &UtilsSHAAdapter::Builder::setSHA1Impl(UtilsSHA1I *v)
 {
-    if (this->mSHA1 != nullptr)
-        delete (this->mSHA1);
-
     this->mSHA1 = v;
     return (*this);
 }
 
 UtilsSHAAdapter::Builder &UtilsSHAAdapter::Builder::setSHA256Impl(UtilsSHA256I *v)
 {
-    if (this->mSHA256 != nullptr)
-        delete (this->mSHA256);
-
     this->mSHA256 = v;
     return (*this);
 }
@@ -85,9 +79,13 @@ std::shared_ptr<UtilsSHAAdapter> UtilsSHAAdapter::Builder::build()
 
 UtilsSHAAdapter::UtilsSHAAdapter(UtilsSHAAdapter::Builder *builder)
         : mBuilder{builder}
-          , mSHA1{*builder->mSHA1}
-          , mSHA256{*builder->mSHA256}
+          , mSHA1{builder->mSHA1}
+          , mSHA256{builder->mSHA256}
 {
+    if (this->mSHA1 == nullptr)
+        this->mSHA1   = new UtilsSHA1WithOpenSSL();
+    if (this->mSHA256 == nullptr)
+        this->mSHA256 = new UtilsSHA256WithOpenSSL();
 }
 
 UtilsSHAAdapter::~UtilsSHAAdapter()
@@ -97,12 +95,12 @@ UtilsSHAAdapter::~UtilsSHAAdapter()
 
 UtilsSHA1I &UtilsSHAAdapter::getSHA1()
 {
-    return this->mSHA1;
+    return (*this->mSHA1);
 }
 
 UtilsSHA256I &UtilsSHAAdapter::getSHA256()
 {
-    return this->mSHA256;
+    return (*this->mSHA256);
 }
 
 }

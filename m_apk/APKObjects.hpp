@@ -4,6 +4,9 @@
 #define CSIGNAPK_APKOBJECTS_HPP
 
 #include "local_impl/APKLocalFactory.hpp"
+#include "signed_impl/APKSignedCert.hpp"
+#include "signed_impl/APKSignedCertRSA.hpp"
+#include "signed_impl/APKSignedManifest.hpp"
 
 namespace m
 {
@@ -13,11 +16,15 @@ inline namespace apk
 
 class APKObjects
         : public UtilsZipUnPackInterceptI
+          , public APKSignedManifestBlockI
+          , public APKSignedCertBlockI
 {
 public:
     class Builder;
 
 private:
+    constexpr static Jchar DEFAULT_OUT_DIR[] = ".";
+
     Builder *mBuilder;
 
     APKLocalActionI<APKLocalBeanFileVar, APKLocalBeanFileCon>             &mFile;
@@ -25,19 +32,26 @@ private:
 
     std::vector<APKLocalBeanFileSignedCon> mSelectArray;
 
-    std::shared_ptr<UtilsSHAAdapter> mSHAAdapter;
-    std::vector<Jbyte>               mSHAValue;
-    std::string                      mSHAStrValue;
+    std::shared_ptr<APKSignedCert>    mSignedCert;
+    std::shared_ptr<APKSignedCertRSA> mSignedCertRSA;
+
+    std::shared_ptr<UtilsPKCSAdapter> mPKCSAdapter;
+    std::vector<Jbyte>                mPKCSValue;
+
+    std::shared_ptr<UtilsSHAAdapter>  mSHAAdapter;
+    std::vector<Jbyte>                mSHAValue;
+    std::string                       mSHABase64Value;
 
 public:
     class Builder
     {
     private:
-        APKLocalActionI<APKLocalBeanFileVar, APKLocalBeanFileCon>             *mFile;
-        APKLocalActionI<APKLocalBeanFileSignedVar, APKLocalBeanFileSignedCon> *mFileSign;
+        APKLocalFactory *mLocalFactory;
 
         std::string mAPKPath;
         std::string mAPKOutPath;
+        std::string mKeyPath;
+        std::string mCertPath;
 
     public:
         friend APKObjects;
@@ -48,9 +62,11 @@ public:
 
         Builder &setAPKOutPath(const Jchar *v);
 
-        Builder &setDBFile(APKLocalActionI<APKLocalBeanFileVar, APKLocalBeanFileCon> &v);
+        Builder &setPrivateKeyPath(const Jchar *v);
 
-        Builder &setDBFileSign(APKLocalActionI<APKLocalBeanFileSignedVar, APKLocalBeanFileSignedCon> &v);
+        Builder &setCertPath(const Jchar *v);
+
+        Builder &setLocalFactory(APKLocalFactory &factory);
 
         std::shared_ptr<APKObjects> build();
     };
@@ -64,20 +80,30 @@ public:
     void unPackEnd(const Jchar *name) override;
 
     void unPackStream(const Jchar *name, const Jbyte *v, Jint vLen) override;
+
+    void manifestBlock(const Jchar *name, const Jchar *v, Jint vLen) override;
+
+    void manifestContentStart(const Jchar *name) override;
+
+    void manifestContentUpdate(const Jchar *name, const Jchar *v, Jint vLen) override;
+
+    void manifestContentEnd(const Jchar *name) override;
+
+    void certContentStart(const Jchar *name) override;
+
+    void certContentUpdate(const Jchar *name, const Jchar *v, Jint vLen) override;
+
+    void certContentEnd(const Jchar *name) override;
 };
 
 APKObjects::Builder::Builder()
-        : mFile{}
-          , mFileSign{}
+        : mLocalFactory{&APKLocalFactory::getInstance()}
           , mAPKPath{}
-          , mAPKOutPath{}
+          , mAPKOutPath{DEFAULT_OUT_DIR}
 {
     auto &&dbEnv = (new APKLocalEnv::Builder())
             ->build();
-
-    APKLocalFactory::getInstance().init(dbEnv);
-    this->mFile     = &APKLocalFactory::getInstance().getFile();
-    this->mFileSign = &APKLocalFactory::getInstance().getFileSign();
+    this->mLocalFactory = &APKLocalFactory::getInstance().init(dbEnv);
 }
 
 APKObjects::Builder &APKObjects::Builder::setAPKPath(const Jchar *v)
@@ -88,21 +114,26 @@ APKObjects::Builder &APKObjects::Builder::setAPKPath(const Jchar *v)
 
 APKObjects::Builder &APKObjects::Builder::setAPKOutPath(const Jchar *v)
 {
+    this->mAPKOutPath.clear();
     this->mAPKOutPath.append(v);
     return (*this);
 }
 
-APKObjects::Builder &APKObjects::Builder::setDBFile(APKLocalActionI<APKLocalBeanFileVar, APKLocalBeanFileCon> &v)
+APKObjects::Builder &APKObjects::Builder::setPrivateKeyPath(const Jchar *v)
 {
-    this->mFile = &v;
+    this->mKeyPath.append(v);
     return (*this);
 }
 
-APKObjects::Builder &APKObjects::Builder::setDBFileSign(
-        APKLocalActionI<APKLocalBeanFileSignedVar, APKLocalBeanFileSignedCon> &v
-)
+APKObjects::Builder &APKObjects::Builder::setCertPath(const Jchar *v)
 {
-    this->mFileSign = &v;
+    this->mCertPath.append(v);
+    return (*this);
+}
+
+APKObjects::Builder &APKObjects::Builder::setLocalFactory(class m::apk::APKLocalFactory &factory)
+{
+    this->mLocalFactory = &factory;
     return (*this);
 }
 
@@ -113,22 +144,60 @@ std::shared_ptr<APKObjects> APKObjects::Builder::build()
 
 APKObjects::APKObjects(Builder *builder)
         : mBuilder{builder}
-          , mFile{*builder->mFile}
-          , mFileSign{*builder->mFileSign}
+          , mFile{builder->mLocalFactory->getFile()}
+          , mFileSign{builder->mLocalFactory->getFileSign()}
           , mSelectArray{}
+          , mSignedCert{}
+          , mSignedCertRSA{}
+          , mPKCSAdapter{}
+          , mPKCSValue{}
           , mSHAAdapter{}
           , mSHAValue{}
-          , mSHAStrValue{}
+          , mSHABase64Value{}
 {
-    this->mSHAAdapter = (new UtilsSHAAdapter::Builder())
+    this->mFile.remove();
+    this->mFileSign.remove();
+
+    this->mPKCSAdapter = (new UtilsPKCSAdapter::Builder())
+            ->setKeyAndCertPath(builder->mKeyPath.c_str(), builder->mCertPath.c_str())
+            .build();
+    this->mSHAAdapter  = (new UtilsSHAAdapter::Builder())
             ->build();
 
     (new UtilsZip::Builder())
             ->setInputPath(builder->mAPKPath.c_str())
-            .setOutputPath(builder->mAPKPath.c_str())
+            .setOutputPath(builder->mAPKOutPath.c_str())
             .setMode(UtilsZipMode::UN_PACK)
             .addUnPackSteam(this)
             .build();
+
+    this->mSignedCertRSA = (new APKSignedCertRSA::Builder())
+            ->setOutPath(builder->mAPKOutPath.c_str())
+            .build();
+
+    this->mSignedCert = (new APKSignedCert::Builder())
+            ->setOutPath(builder->mAPKOutPath.c_str())
+            .addIntercept(this)
+            .build();
+
+    auto &&manifest = (new APKSignedManifest::Builder())
+            ->setOutPath(builder->mAPKOutPath.c_str())
+            .addIntercept(this)
+            .build();
+
+    this->mFileSign.select(this->mSelectArray);
+    if (this->mSelectArray.empty())
+        return;
+
+    for (APKLocalBeanFileSignedCon &v : this->mSelectArray)
+    {
+        UtilsBase64::Encrypt(v.getSHA256().data(), v.getSHA256().size(), this->mSHABase64Value);
+        manifest->signContentStream(v.getName().c_str(), this->mSHABase64Value.c_str(), this->mSHABase64Value.length());
+    }
+
+    manifest->signStreamEnd();
+    this->mSignedCert->signStreamEnd();
+    this->mSignedCertRSA->signStreamEnd();
 }
 
 APKObjects::~APKObjects()
@@ -136,7 +205,7 @@ APKObjects::~APKObjects()
     delete (this->mBuilder);
 }
 
-void APKObjects::unPackStart(const Jchar *name)
+void APKObjects::unPackStart(const Jchar *)
 {
     this->mSHAAdapter->getSHA1().sha1Ready();
     this->mSHAAdapter->getSHA256().sha256Ready();
@@ -154,12 +223,10 @@ void APKObjects::unPackEnd(const Jchar *name)
 
     sign.setName(name);
     this->mSHAAdapter->getSHA1().sha1Done(this->mSHAValue);
-    UtilsHEX::vOneTwo(this->mSHAValue.data(), this->mSHAValue.size(), this->mSHAStrValue);
-    sign.setSHA1(this->mSHAStrValue.c_str());
+    sign.setSHA1(this->mSHAValue.data(), this->mSHAValue.size());
 
     this->mSHAAdapter->getSHA256().sha256Done(this->mSHAValue);
-    UtilsHEX::vOneTwo(this->mSHAValue.data(), this->mSHAValue.size(), this->mSHAStrValue);
-    sign.setSHA256(this->mSHAStrValue.c_str());
+    sign.setSHA256(this->mSHAValue.data(), this->mSHAValue.size());
 
     if (this->mSelectArray.empty())
         this->mFileSign.insert(sign);
@@ -167,10 +234,54 @@ void APKObjects::unPackEnd(const Jchar *name)
         this->mFileSign.update(APKLocalBeanFileSignedVar::NAME, APKLocalBeanFileSignedCon().setName(name), sign);
 }
 
-void APKObjects::unPackStream(const Jchar *name, const Jbyte *v, Jint vLen)
+void APKObjects::unPackStream(const Jchar *, const Jbyte *v, Jint vLen)
 {
     this->mSHAAdapter->getSHA1().sha1Process(v, vLen);
     this->mSHAAdapter->getSHA256().sha256Process(v, vLen);
+}
+
+void APKObjects::manifestBlock(const Jchar *name, const Jchar *v, Jint vLen)
+{
+    this->mSHAAdapter->getSHA256().sha256(reinterpret_cast<Jbyte *>(const_cast<Jchar *>(v)), vLen, this->mSHAValue);
+    UtilsBase64::Encrypt(this->mSHAValue.data(), this->mSHAValue.size(), this->mSHABase64Value);
+    this->mSignedCert->signContentStream(name, this->mSHABase64Value.c_str(), this->mSHABase64Value.length());
+}
+
+void APKObjects::manifestContentStart(const Jchar *)
+{
+    this->mSHAAdapter->getSHA256().sha256Ready();
+}
+
+void APKObjects::manifestContentUpdate(const Jchar *, const Jchar *v, Jint vLen)
+{
+    this->mSHAAdapter->getSHA256().sha256Process(reinterpret_cast<Jbyte *>(const_cast<Jchar *>(v)), vLen);
+}
+
+void APKObjects::manifestContentEnd(const Jchar *name)
+{
+    this->mSHAAdapter->getSHA256().sha256Done(this->mSHAValue);
+    UtilsBase64::Encrypt(this->mSHAValue.data(), this->mSHAValue.size(), this->mSHABase64Value);
+    this->mSignedCert->signHeadStream(name, this->mSHABase64Value.c_str(), this->mSHABase64Value.length());
+}
+
+void APKObjects::certContentStart(const Jchar *)
+{
+    this->mPKCSAdapter->getType7().pkcs7Ready();
+}
+
+void APKObjects::certContentUpdate(const Jchar *, const Jchar *v, Jint vLen)
+{
+    this->mPKCSAdapter->getType7().pkcs7Process(reinterpret_cast<Jbyte *>(const_cast<Jchar *>(v)), vLen);
+}
+
+void APKObjects::certContentEnd(const Jchar *name)
+{
+    this->mPKCSAdapter->getType7().pkcs7Done(this->mPKCSValue);
+    this->mSignedCertRSA->signContentStream(
+            name,
+            reinterpret_cast<Jchar *>(this->mPKCSValue.data()),
+            this->mPKCSValue.size()
+    );
 }
 
 }

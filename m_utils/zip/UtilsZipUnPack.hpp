@@ -4,7 +4,6 @@
 #define CSIGNAPK_UTILSZIPUNPACK_HPP
 
 #include <unzip.h>
-#include <Windows.h>
 
 namespace m
 {
@@ -65,6 +64,7 @@ void UtilsZipUnPack::stream(const Jchar *in, const Jchar *out)
 {
     Jint readLen = 0;
 
+    printf("%s\r\n", out);
     this->mUnzFile = unzOpen(in);
     if (this->mUnzFile == nullptr)
         return;

@@ -25,8 +25,8 @@ private:
                                    "ID INTEGER PRIMARY KEY AUTOINCREMENT,"
                                    "FILE_ID INTEGER,"
                                    "NAME TEXT,"
-                                   "SHA1 TEXT,"
-                                   "SHA256 TEXT"
+                                   "SHA1 BLOB,"
+                                   "SHA256 BLOB"
                                    ");";
 
     constexpr static Jchar T_SELECT[] =
@@ -145,8 +145,14 @@ Jbool APKLocalFileSigned::select(std::vector<APKLocalBeanFileSignedCon> &array)
                     APKLocalBeanFileSignedCon().setID(sqlite3_column_int(stmt, 0))
                             .setFileID(sqlite3_column_int(stmt, 1))
                             .setName(reinterpret_cast<Jchar *>(const_cast<Jbyte *>(sqlite3_column_text(stmt, 2))))
-                            .setSHA1(reinterpret_cast<Jchar *>(const_cast<Jbyte *>(sqlite3_column_text(stmt, 3))))
-                            .setSHA256(reinterpret_cast<Jchar *>(const_cast<Jbyte *>(sqlite3_column_text(stmt, 4))))
+                            .setSHA1(
+                                    reinterpret_cast<Jbyte *>(const_cast<void *>(sqlite3_column_blob(stmt, 3))),
+                                    sqlite3_column_bytes(stmt, 3)
+                            )
+                            .setSHA256(
+                                    reinterpret_cast<Jbyte *>(const_cast<void *>(sqlite3_column_blob(stmt, 4))),
+                                    sqlite3_column_bytes(stmt, 4)
+                            )
             );
         }
 
@@ -232,9 +238,9 @@ Jbool APKLocalFileSigned::select(
         else if (cond == APKLocalBeanFileSignedVar::NAME)
             sqlite3_bind_text(stmt, 1, value.getName().data(), value.getName().length(), nullptr);
         else if (cond == APKLocalBeanFileSignedVar::SHA_1)
-            sqlite3_bind_text(stmt, 1, value.getSHA1().data(), value.getSHA1().length(), nullptr);
+            sqlite3_bind_blob(stmt, 1, value.getSHA1().data(), value.getSHA1().size(), nullptr);
         else
-            sqlite3_bind_text(stmt, 1, value.getSHA256().data(), value.getSHA256().length(), nullptr);
+            sqlite3_bind_blob(stmt, 1, value.getSHA256().data(), value.getSHA256().size(), nullptr);
 
         while (sqlite3_step(stmt) == SQLITE_ROW)
         {
@@ -242,8 +248,14 @@ Jbool APKLocalFileSigned::select(
                     APKLocalBeanFileSignedCon().setID(sqlite3_column_int(stmt, 0))
                             .setFileID(sqlite3_column_int(stmt, 1))
                             .setName(reinterpret_cast<Jchar *>(const_cast<Jbyte *>(sqlite3_column_text(stmt, 2))))
-                            .setSHA1(reinterpret_cast<Jchar *>(const_cast<Jbyte *>(sqlite3_column_text(stmt, 3))))
-                            .setSHA256(reinterpret_cast<Jchar *>(const_cast<Jbyte *>(sqlite3_column_text(stmt, 4))))
+                            .setSHA1(
+                                    reinterpret_cast<Jbyte *>(const_cast<void *>(sqlite3_column_blob(stmt, 3))),
+                                    sqlite3_column_bytes(stmt, 3)
+                            )
+                            .setSHA256(
+                                    reinterpret_cast<Jbyte *>(const_cast<void *>(sqlite3_column_blob(stmt, 4))),
+                                    sqlite3_column_bytes(stmt, 4)
+                            )
             );
         }
 
@@ -273,8 +285,8 @@ Jbool APKLocalFileSigned::insert(APKLocalBeanFileSignedCon &value)
 
         sqlite3_bind_int(stmt, 1, value.getFileID());
         sqlite3_bind_text(stmt, 2, value.getName().data(), value.getName().length(), nullptr);
-        sqlite3_bind_text(stmt, 3, value.getSHA1().data(), value.getSHA1().length(), nullptr);
-        sqlite3_bind_text(stmt, 4, value.getSHA256().data(), value.getSHA256().length(), nullptr);
+        sqlite3_bind_blob(stmt, 3, value.getSHA1().data(), value.getSHA1().size(), nullptr);
+        sqlite3_bind_blob(stmt, 4, value.getSHA256().data(), value.getSHA256().size(), nullptr);
 
         state = sqlite3_step(stmt) == SQLITE_DONE;
     } while (false);
@@ -342,17 +354,17 @@ Jbool APKLocalFileSigned::update(
 
         sqlite3_bind_int(stmt, 1, write.getFileID());
         sqlite3_bind_text(stmt, 2, write.getName().data(), write.getName().length(), nullptr);
-        sqlite3_bind_text(stmt, 3, write.getSHA1().data(), write.getSHA256().length(), nullptr);
-        sqlite3_bind_text(stmt, 4, write.getSHA256().data(), write.getSHA256().length(), nullptr);
+        sqlite3_bind_blob(stmt, 3, write.getSHA1().data(), write.getSHA1().size(), nullptr);
+        sqlite3_bind_blob(stmt, 4, write.getSHA256().data(), write.getSHA256().size(), nullptr);
 
         if (cond == APKLocalBeanFileSignedVar::FILE_ID)
             sqlite3_bind_int(stmt, 5, value.getFileID());
         else if (cond == APKLocalBeanFileSignedVar::NAME)
             sqlite3_bind_text(stmt, 5, value.getName().data(), value.getName().length(), nullptr);
         else if (cond == APKLocalBeanFileSignedVar::SHA_1)
-            sqlite3_bind_text(stmt, 5, value.getSHA1().data(), value.getSHA1().length(), nullptr);
+            sqlite3_bind_blob(stmt, 5, value.getSHA1().data(), value.getSHA1().size(), nullptr);
         else
-            sqlite3_bind_text(stmt, 5, value.getSHA256().data(), value.getSHA256().length(), nullptr);
+            sqlite3_bind_blob(stmt, 5, value.getSHA256().data(), value.getSHA256().size(), nullptr);
 
         state = sqlite3_step(stmt) == SQLITE_DONE;
     } while (false);
@@ -455,9 +467,9 @@ Jbool APKLocalFileSigned::remove(APKLocalBeanFileSignedVar cond, APKLocalBeanFil
         else if (cond == APKLocalBeanFileSignedVar::NAME)
             sqlite3_bind_text(stmt, 1, value.getName().data(), value.getName().length(), nullptr);
         else if (cond == APKLocalBeanFileSignedVar::SHA_1)
-            sqlite3_bind_text(stmt, 1, value.getSHA1().data(), value.getSHA1().length(), nullptr);
+            sqlite3_bind_blob(stmt, 1, value.getSHA1().data(), value.getSHA1().size(), nullptr);
         else
-            sqlite3_bind_text(stmt, 1, value.getSHA256().data(), value.getSHA256().length(), nullptr);
+            sqlite3_bind_blob(stmt, 1, value.getSHA256().data(), value.getSHA256().size(), nullptr);
 
         state = sqlite3_step(stmt) == SQLITE_DONE;
     } while (false);

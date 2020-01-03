@@ -3,8 +3,6 @@
 #ifndef CSIGNAPK_APKLOCALFILE_HPP
 #define CSIGNAPK_APKLOCALFILE_HPP
 
-#include <sqlite3.h>
-
 #include "bean/APKLocalBeanFileCon.hpp"
 #include "bean/APKLocalBeanFileVar.hpp"
 
@@ -18,50 +16,13 @@ class APKLocalFile
         : public APKLocalActionI<APKLocalBeanFileVar, APKLocalBeanFileCon>
 {
 private:
-    constexpr static Jchar TABLE_SIGN[] = "/1631962F301C59AC3ECC3DE66A35DD5A";
+    constexpr static Jint INDEX_START = 1;
 
-    constexpr static Jchar T_CREATE[] =
-                                   "CREATE TABLE T_APK("
-                                   "ID INTEGER PRIMARY KEY AUTOINCREMENT,"
-                                   "NAME TEXT,"
-                                   "SIGN BLOB"
-                                   ");";
-
-    constexpr static Jchar T_SELECT[] =
-                                   "SELECT ID,NAME,SIGN FROM T_APK;";
-    constexpr static Jchar T_DELETE[] =
-                                   "DELETE FROM T_APK;";
-    constexpr static Jchar T_INSERT[] =
-                                   "INSERT INTO T_APK(NAME,SIGN) VALUES(?,?)";
-
-    constexpr static Jchar T_SELECT_WITH_ID[]   =
-                                   "SELECT ID,NAME,SIGN FROM T_APK WHERE ID=?;";
-    constexpr static Jchar T_SELECT_WITH_NAME[] =
-                                   "SELECT ID,NAME,SIGN FROM T_APK WHERE NAME=?;";
-    constexpr static Jchar T_SELECT_WITH_SIGN[] =
-                                   "SELECT ID,NAME,SIGN FROM T_APK WHERE SIGN=?;";
-
-    constexpr static Jchar T_UPDATE_WITH_ID[]   =
-                                   "UPDATE T_APK SET NAME=?,SIGN=? WHERE ID=?;";
-    constexpr static Jchar T_UPDATE_WITH_NAME[] =
-                                   "UPDATE T_APK SET NAME=?,SIGN=? WHERE NAME=?;";
-    constexpr static Jchar T_UPDATE_WITH_SIGN[] =
-                                   "UPDATE T_APK SET NAME=?,SIGN=? WHERE SIGN=?;";
-
-    constexpr static Jchar T_DELETE_WITH_ID[]   =
-                                   "DELETE FROM T_APK WHERE ID=?;";
-    constexpr static Jchar T_DELETE_WITH_NAME[] =
-                                   "DELETE FROM T_APK WHERE NAME=?;";
-    constexpr static Jchar T_DELETE_WITH_SIGN[] =
-                                   "DELETE FROM T_APK WHERE SIGN=?;";
-
-    sqlite3     *mSQL;
-    std::string mRootPath;
+    Jint                           mIDAutoIndex;
+    std::list<APKLocalBeanFileCon> mSotres;
 
 public:
     APKLocalFile();
-
-    ~APKLocalFile() override;
 
     void start(const Jchar *path) override;
 
@@ -83,62 +44,25 @@ public:
 };
 
 APKLocalFile::APKLocalFile()
-        : mSQL{}
-          , mRootPath{}
+        : mIDAutoIndex{INDEX_START}
+          , mSotres{}
 {
-}
-
-APKLocalFile::~APKLocalFile()
-{
-    if (this->mSQL != nullptr)
-        sqlite3_close(this->mSQL);
 }
 
 void APKLocalFile::start(const Jchar *path)
 {
-    this->mRootPath.append(path)
-            .append(TABLE_SIGN);
-
-    sqlite3_open(this->mRootPath.c_str(), &this->mSQL);
-    if (this->mSQL != nullptr)
-        sqlite3_exec(this->mSQL, T_CREATE, nullptr, nullptr, nullptr);
 }
 
 Jbool APKLocalFile::select(std::vector<APKLocalBeanFileCon> &array)
 {
-    Jbool        state = false;
-    sqlite3_stmt *stmt = nullptr;
-
-    do
+    for (auto &con : this->mSotres)
     {
-        array.clear();
-        if (sqlite3_prepare_v2(
-                this->mSQL,
-                T_SELECT,
-                strlen(T_SELECT),
-                &stmt,
-                nullptr
-        ) != SQLITE_OK)
-            break;
+        if (con.getID() == 0)
+            continue;
 
-        while (sqlite3_step(stmt) == SQLITE_ROW)
-        {
-            array.push_back(
-                    APKLocalBeanFileCon().setID(sqlite3_column_int(stmt, 0))
-                            .setName(reinterpret_cast<Jchar *>(const_cast<Jbyte *>(sqlite3_column_text(stmt, 1))))
-                            .setSign(
-                                    reinterpret_cast<Jbyte *>(const_cast<void *>(sqlite3_column_blob(stmt, 2))),
-                                    sqlite3_column_bytes(stmt, 2)
-                            )
-            );
-        }
-
-        state = true;
-    } while (false);
-
-    if (stmt != nullptr)
-        sqlite3_finalize(stmt);
-    return state;
+        array.push_back(con);
+    }
+    return true;
 }
 
 Jbool APKLocalFile::select(
@@ -147,228 +71,102 @@ Jbool APKLocalFile::select(
         std::vector<APKLocalBeanFileCon> &array
 )
 {
-    Jbool        state = false;
-    sqlite3_stmt *stmt = nullptr;
-
-    do
+    for (auto &con : this->mSotres)
     {
-        array.clear();
+        if (con.getID() == 0)
+            continue;
+
         if (cond == APKLocalBeanFileVar::ID)
         {
-            if (sqlite3_prepare_v2(
-                    this->mSQL,
-                    T_SELECT_WITH_ID,
-                    strlen(T_SELECT_WITH_ID),
-                    &stmt,
-                    nullptr
-            ) != SQLITE_OK)
-                break;
+            if (value.getID() != con.getID())
+                continue;
         } else if (cond == APKLocalBeanFileVar::FILE_NAME)
         {
-            if (sqlite3_prepare_v2(
-                    this->mSQL,
-                    T_SELECT_WITH_NAME,
-                    strlen(T_SELECT_WITH_NAME),
-                    &stmt,
-                    nullptr
-            ) != SQLITE_OK)
-                break;
+            if (value.getName() != con.getName())
+                continue;
         } else if (cond == APKLocalBeanFileVar::FILE_SIGN)
         {
-            if (sqlite3_prepare_v2(
-                    this->mSQL,
-                    T_SELECT_WITH_SIGN,
-                    strlen(T_SELECT_WITH_SIGN),
-                    &stmt,
-                    nullptr
-            ) != SQLITE_OK)
-                break;
+            if (value.getSign() != con.getSign())
+                continue;
         } else
         {
-            break;
+            continue;
         }
 
-        if (cond == APKLocalBeanFileVar::ID)
-            sqlite3_bind_int(stmt, 1, value.getID());
-        else if (cond == APKLocalBeanFileVar::FILE_NAME)
-            sqlite3_bind_text(stmt, 1, value.getName().data(), value.getName().length(), nullptr);
-        else
-            sqlite3_bind_blob(stmt, 1, value.getSign().data(), value.getSign().size(), nullptr);
-
-        while (sqlite3_step(stmt) == SQLITE_ROW)
-        {
-            array.push_back(
-                    APKLocalBeanFileCon().setID(sqlite3_column_int(stmt, 0))
-                            .setName(reinterpret_cast<Jchar *>(const_cast<Jbyte *>(sqlite3_column_text(stmt, 1))))
-                            .setSign(
-                                    reinterpret_cast<Jbyte *>(const_cast<void *>(sqlite3_column_blob(stmt, 2))),
-                                    sqlite3_column_bytes(stmt, 2)
-                            )
-            );
-        }
-
-        state = true;
-    } while (false);
-
-    if (stmt != nullptr)
-        sqlite3_finalize(stmt);
-    return state;
+        array.push_back(con);
+    }
+    return true;
 }
 
 Jbool APKLocalFile::insert(APKLocalBeanFileCon &value)
 {
-    Jbool        state = false;
-    sqlite3_stmt *stmt = nullptr;
-
-    do
-    {
-        if (sqlite3_prepare_v2(
-                this->mSQL,
-                T_INSERT,
-                strlen(T_INSERT),
-                &stmt,
-                nullptr
-        ) != SQLITE_OK)
-            break;
-
-        sqlite3_bind_text(stmt, 1, value.getName().data(), value.getName().length(), nullptr);
-        sqlite3_bind_blob(stmt, 2, value.getSign().data(), value.getSign().size(), nullptr);
-
-        state = sqlite3_step(stmt) == SQLITE_DONE;
-    } while (false);
-
-    if (stmt != nullptr)
-        sqlite3_finalize(stmt);
-    return state;
+    this->mSotres.push_back(value.setID(this->mIDAutoIndex));
+    ++this->mIDAutoIndex;
+    return true;
 }
 
 Jbool APKLocalFile::update(APKLocalBeanFileVar cond, APKLocalBeanFileCon &value, APKLocalBeanFileCon &write)
 {
-    Jbool        state = false;
-    sqlite3_stmt *stmt = nullptr;
-
-    do
+    for (auto &con : this->mSotres)
     {
-        if (cond == APKLocalBeanFileVar::FILE_NAME)
+        if (con.getID() == 0)
+            continue;
+
+        if (cond == APKLocalBeanFileVar::ID)
         {
-            if (sqlite3_prepare_v2(
-                    this->mSQL,
-                    T_UPDATE_WITH_NAME,
-                    strlen(T_UPDATE_WITH_NAME),
-                    &stmt,
-                    nullptr
-            ) != SQLITE_OK)
-                break;
+            if (value.getID() != con.getID())
+                continue;
+        } else if (cond == APKLocalBeanFileVar::FILE_NAME)
+        {
+            if (value.getName() != con.getName())
+                continue;
         } else if (cond == APKLocalBeanFileVar::FILE_SIGN)
         {
-            if (sqlite3_prepare_v2(
-                    this->mSQL,
-                    T_UPDATE_WITH_SIGN,
-                    strlen(T_UPDATE_WITH_SIGN),
-                    &stmt,
-                    nullptr
-            ) != SQLITE_OK)
-                break;
+            if (value.getSign() != con.getSign())
+                continue;
         } else
         {
-            break;
+            continue;
         }
 
-        sqlite3_bind_text(stmt, 1, write.getName().data(), write.getName().length(), nullptr);
-        sqlite3_bind_blob(stmt, 2, write.getSign().data(), write.getSign().size(), nullptr);
-
-        if (cond == APKLocalBeanFileVar::FILE_NAME)
-            sqlite3_bind_text(stmt, 3, value.getName().data(), value.getName().length(), nullptr);
-        else
-            sqlite3_bind_blob(stmt, 3, value.getSign().data(), value.getSign().size(), nullptr);
-
-        state = sqlite3_step(stmt) == SQLITE_DONE;
-    } while (false);
-
-    if (stmt != nullptr)
-        sqlite3_finalize(stmt);
-    return state;
+        con.setName(write.getName().c_str())
+                .setSign(write.getSign().data(), write.getSign().size());
+    }
+    return true;
 }
 
 Jbool APKLocalFile::remove()
 {
-    Jbool        state = false;
-    sqlite3_stmt *stmt = nullptr;
-
-    do
-    {
-        if (sqlite3_prepare_v2(
-                this->mSQL,
-                T_DELETE,
-                strlen(T_DELETE),
-                &stmt,
-                nullptr
-        ) != SQLITE_OK)
-            break;
-
-        state = sqlite3_step(stmt) == SQLITE_DONE;
-    } while (false);
-
-    if (stmt != nullptr)
-        sqlite3_finalize(stmt);
-    return state;
+    this->mIDAutoIndex = INDEX_START;
+    this->mSotres.clear();
+    return true;
 }
 
 Jbool APKLocalFile::remove(APKLocalBeanFileVar cond, APKLocalBeanFileCon &value)
 {
-    Jbool        state = false;
-    sqlite3_stmt *stmt = nullptr;
-
-    do
+    for (APKLocalBeanFileCon &con : this->mSotres)
     {
         if (cond == APKLocalBeanFileVar::ID)
         {
-            if (sqlite3_prepare_v2(
-                    this->mSQL,
-                    T_DELETE_WITH_ID,
-                    strlen(T_DELETE_WITH_ID),
-                    &stmt,
-                    nullptr
-            ) != SQLITE_OK)
-                break;
+            if (value.getID() != con.getID())
+                continue;
         } else if (cond == APKLocalBeanFileVar::FILE_NAME)
         {
-            if (sqlite3_prepare_v2(
-                    this->mSQL,
-                    T_DELETE_WITH_NAME,
-                    strlen(T_DELETE_WITH_NAME),
-                    &stmt,
-                    nullptr
-            ) != SQLITE_OK)
-                break;
+            if (value.getName() != con.getName())
+                continue;
         } else if (cond == APKLocalBeanFileVar::FILE_SIGN)
         {
-            if (sqlite3_prepare_v2(
-                    this->mSQL,
-                    T_DELETE_WITH_SIGN,
-                    strlen(T_DELETE_WITH_SIGN),
-                    &stmt,
-                    nullptr
-            ) != SQLITE_OK)
-                break;
+            if (value.getSign() != con.getSign())
+                continue;
         } else
         {
-            break;
+            continue;
         }
 
-        if (cond == APKLocalBeanFileVar::ID)
-            sqlite3_bind_int(stmt, 1, value.getID());
-        else if (cond == APKLocalBeanFileVar::FILE_NAME)
-            sqlite3_bind_text(stmt, 1, value.getName().data(), value.getName().length(), nullptr);
-        else
-            sqlite3_bind_blob(stmt, 1, value.getSign().data(), value.getSign().size(), nullptr);
+        con.setID(0);
+    }
 
-        state = sqlite3_step(stmt) == SQLITE_DONE;
-    } while (false);
-
-    if (stmt != nullptr)
-        sqlite3_finalize(stmt);
-    return state;
+    return true;
 }
 
 }

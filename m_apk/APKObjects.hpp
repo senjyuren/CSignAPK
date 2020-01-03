@@ -23,11 +23,13 @@ public:
     class Builder;
 
 private:
-    constexpr static Jchar DEFAULT_OUT_DIR[] = ".";
+    constexpr static Jchar DEFAULT_OUT_DIR[]  = ".";
+    constexpr static Jchar BACK_CERT_SF[]     = "CERT.SF";
+    constexpr static Jchar BACK_CERT_RSA[]    = "CERT.RSA";
+    constexpr static Jchar BACK_MANIFEST_MF[] = "MANIFEST.MF";
 
     Builder *mBuilder;
 
-    APKLocalActionI<APKLocalBeanFileVar, APKLocalBeanFileCon>             &mFile;
     APKLocalActionI<APKLocalBeanFileSignedVar, APKLocalBeanFileSignedCon> &mFileSign;
 
     std::vector<APKLocalBeanFileSignedCon> mSelectArray;
@@ -144,7 +146,6 @@ std::shared_ptr<APKObjects> APKObjects::Builder::build()
 
 APKObjects::APKObjects(Builder *builder)
         : mBuilder{builder}
-          , mFile{builder->mLocalFactory->getFile()}
           , mFileSign{builder->mLocalFactory->getFileSign()}
           , mSelectArray{}
           , mSignedCert{}
@@ -155,7 +156,6 @@ APKObjects::APKObjects(Builder *builder)
           , mSHAValue{}
           , mSHABase64Value{}
 {
-    this->mFile.remove();
     this->mFileSign.remove();
 
     this->mPKCSAdapter = (new UtilsPKCSAdapter::Builder())
@@ -164,11 +164,13 @@ APKObjects::APKObjects(Builder *builder)
     this->mSHAAdapter  = (new UtilsSHAAdapter::Builder())
             ->build();
 
-    (new UtilsZip::Builder())
+    auto &&autoUnZip = (new UtilsZip::Builder())
             ->setInputPath(builder->mAPKPath.c_str())
             .setOutputPath(builder->mAPKOutPath.c_str())
-            .setMode(UtilsZipMode::UN_PACK)
             .addUnPackSteam(this)
+            .addFileNameToBacklist(BACK_CERT_SF)
+            .addFileNameToBacklist(BACK_CERT_RSA)
+            .addFileNameToBacklist(BACK_MANIFEST_MF)
             .build();
 
     this->mSignedCertRSA = (new APKSignedCertRSA::Builder())
@@ -198,6 +200,16 @@ APKObjects::APKObjects(Builder *builder)
     manifest->signStreamEnd();
     this->mSignedCert->signStreamEnd();
     this->mSignedCertRSA->signStreamEnd();
+
+    auto &&autoZip = (new UtilsZip::Builder(autoUnZip->getAllZipPath(), autoUnZip->getAllRootPath()))
+            ->setInputPath(builder->mAPKPath.c_str())
+            .setOutputPath(builder->mAPKOutPath.c_str())
+            .isOnlyPack()
+            .addFileToPack(manifest->getPath().c_str())
+            .addFileToPack(this->mSignedCert->getPath().c_str())
+            .addFileToPack(this->mSignedCertRSA->getPath().c_str())
+            .build();
+    autoZip->pack();
 }
 
 APKObjects::~APKObjects()

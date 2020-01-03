@@ -6,8 +6,6 @@
 #include "bean/APKLocalBeanFileSignedVar.hpp"
 #include "bean/APKLocalBeanFileSignedCon.hpp"
 
-#include <sqlite3.h>
-
 namespace m
 {
 
@@ -18,64 +16,13 @@ class APKLocalFileSigned
         : public APKLocalActionI<APKLocalBeanFileSignedVar, APKLocalBeanFileSignedCon>
 {
 private:
-    constexpr static Jchar TABLE_SIGN[] = "/36FF4C01704BB0815D4110EAE8AA359C";
+    constexpr static Jint INDEX_START = 1;
 
-    constexpr static Jchar T_CREATE[] =
-                                   "CREATE TABLE T_APK_SIGNED("
-                                   "ID INTEGER PRIMARY KEY AUTOINCREMENT,"
-                                   "FILE_ID INTEGER,"
-                                   "NAME TEXT,"
-                                   "SHA1 BLOB,"
-                                   "SHA256 BLOB"
-                                   ");";
-
-    constexpr static Jchar T_SELECT[] =
-                                   "SELECT ID,FILE_ID,NAME,SHA1,SHA256 FROM T_APK_SIGNED;";
-    constexpr static Jchar T_DELETE[] =
-                                   "DELETE FROM T_APK_SIGNED;";
-    constexpr static Jchar T_INSERT[] =
-                                   "INSERT INTO T_APK_SIGNED(FILE_ID,NAME,SHA1,SHA256) VALUES(?,?,?,?);";
-
-    constexpr static Jchar T_SELECT_WITH_ID[]      =
-                                   "SELECT ID,FILE_ID,NAME,SHA1,SHA256 FROM T_APK_SIGNED WHERE ID=?;";
-    constexpr static Jchar T_SELECT_WITH_FILE_ID[] =
-                                   "SELECT ID,FILE_ID,NAME,SHA1,SHA256 FROM T_APK_SIGNED WHERE FILE_ID=?;";
-    constexpr static Jchar T_SELECT_WITH_NAME[]    =
-                                   "SELECT ID,FILE_ID,NAME,SHA1,SHA256 FROM T_APK_SIGNED WHERE NAME=?;";
-    constexpr static Jchar T_SELECT_WITH_SHA1[]    =
-                                   "SELECT ID,FILE_ID,NAME,SHA1,SHA256 FROM T_APK_SIGNED WHERE SHA1=?;";
-    constexpr static Jchar T_SELECT_WITH_SHA256[]  =
-                                   "SELECT ID,FILE_ID,NAME,SHA1,SHA256 FROM T_APK_SIGNED WHERE SHA256=?;";
-
-    constexpr static Jchar T_UPDATE_WITH_ID[]      =
-                                   "UPDATE T_APK_SIGNED SET FILE_ID=?,NAME=?,SHA1=?,SHA256=? WHERE ID=?;";
-    constexpr static Jchar T_UPDATE_WITH_FILE_ID[] =
-                                   "UPDATE T_APK_SIGNED SET FILE_ID=?,NAME=?,SHA1=?,SHA256=? WHERE FILE_ID=?;";
-    constexpr static Jchar T_UPDATE_WITH_NAME[]    =
-                                   "UPDATE T_APK_SIGNED SET FILE_ID=?,NAME=?,SHA1=?,SHA256=? WHERE NAME=?;";
-    constexpr static Jchar T_UPDATE_WITH_SHA1[]    =
-                                   "UPDATE T_APK_SIGNED SET FILE_ID=?,NAME=?,SHA1=?,SHA256=? WHERE SHA1=?;";
-    constexpr static Jchar T_UPDATE_WITH_SHA256[]  =
-                                   "UPDATE T_APK_SIGNED SET FILE_ID=?,NAME=?,SHA1=?,SHA256=? WHERE SHA256=?;";
-
-    constexpr static Jchar T_DELETE_WITH_ID[]        =
-                                   "DELETE FROM T_APK_SIGNED WHERE ID=?;";
-    constexpr static Jchar T_DELETE_WITH_FILE_ID[]   =
-                                   "DELETE FROM T_APK_SIGNED WHERE FILE_ID=?;";
-    constexpr static Jchar T_DELETE_WITH_FILE_NAME[] =
-                                   "DELETE FROM T_APK_SIGNED WHERE NAME=?;";
-    constexpr static Jchar T_DELETE_WITH_SHA1[]      =
-                                   "DELETE FROM T_APK_SIGNED WHERE SHA1=?;";
-    constexpr static Jchar T_DELETE_WITH_SHA256[]    =
-                                   "DELETE FROM T_APK_SIGNED WHERE SHA256=?;";
-
-    sqlite3     *mSQL;
-    std::string mRootPath;
+    Jint                                 mIDAutoIndex;
+    std::list<APKLocalBeanFileSignedCon> mStores;
 
 public:
     APKLocalFileSigned();
-
-    ~APKLocalFileSigned() override;
 
     void start(const Jchar *path) override;
 
@@ -101,67 +48,25 @@ public:
 };
 
 APKLocalFileSigned::APKLocalFileSigned()
-        : mSQL{}
-          , mRootPath{}
+        : mIDAutoIndex{INDEX_START}
+          , mStores{}
 {
-}
-
-APKLocalFileSigned::~APKLocalFileSigned()
-{
-    if (this->mSQL != nullptr)
-        sqlite3_close(this->mSQL);
 }
 
 void APKLocalFileSigned::start(const Jchar *path)
 {
-    this->mRootPath.append(path)
-            .append(TABLE_SIGN);
-
-    sqlite3_open(this->mRootPath.c_str(), &this->mSQL);
-    if (this->mSQL != nullptr)
-        sqlite3_exec(this->mSQL, T_CREATE, nullptr, nullptr, nullptr);
 }
 
 Jbool APKLocalFileSigned::select(std::vector<APKLocalBeanFileSignedCon> &array)
 {
-    Jbool        state = false;
-    sqlite3_stmt *stmt = nullptr;
-
-    do
+    for (auto &con : this->mStores)
     {
-        array.clear();
-        if (sqlite3_prepare_v2(
-                this->mSQL,
-                T_SELECT,
-                strlen(T_SELECT),
-                &stmt,
-                nullptr
-        ) != SQLITE_OK)
-            break;
+        if (con.getID() == 0)
+            continue;
 
-        while (sqlite3_step(stmt) == SQLITE_ROW)
-        {
-            array.push_back(
-                    APKLocalBeanFileSignedCon().setID(sqlite3_column_int(stmt, 0))
-                            .setFileID(sqlite3_column_int(stmt, 1))
-                            .setName(reinterpret_cast<Jchar *>(const_cast<Jbyte *>(sqlite3_column_text(stmt, 2))))
-                            .setSHA1(
-                                    reinterpret_cast<Jbyte *>(const_cast<void *>(sqlite3_column_blob(stmt, 3))),
-                                    sqlite3_column_bytes(stmt, 3)
-                            )
-                            .setSHA256(
-                                    reinterpret_cast<Jbyte *>(const_cast<void *>(sqlite3_column_blob(stmt, 4))),
-                                    sqlite3_column_bytes(stmt, 4)
-                            )
-            );
-        }
-
-        state = true;
-    } while (false);
-
-    if (stmt != nullptr)
-        sqlite3_finalize(stmt);
-    return state;
+        array.push_back(con);
+    }
+    return true;
 }
 
 Jbool APKLocalFileSigned::select(
@@ -170,130 +75,47 @@ Jbool APKLocalFileSigned::select(
         std::vector<APKLocalBeanFileSignedCon> &array
 )
 {
-    Jbool        state = false;
-    sqlite3_stmt *stmt = nullptr;
-
-    do
+    for (auto &con : this->mStores)
     {
-        array.clear();
+        if (con.getID() == 0)
+            continue;
+
         if (cond == APKLocalBeanFileSignedVar::ID)
         {
-            if (sqlite3_prepare_v2(
-                    this->mSQL,
-                    T_SELECT_WITH_ID,
-                    strlen(T_SELECT_WITH_ID),
-                    &stmt,
-                    nullptr
-            ) != SQLITE_OK)
-                break;
+            if (con.getID() != value.getID())
+                continue;
         } else if (cond == APKLocalBeanFileSignedVar::FILE_ID)
         {
-            if (sqlite3_prepare_v2(
-                    this->mSQL,
-                    T_SELECT_WITH_FILE_ID,
-                    strlen(T_SELECT_WITH_FILE_ID),
-                    &stmt,
-                    nullptr
-            ) != SQLITE_OK)
-                break;
+            if (con.getFileID() != value.getFileID())
+                continue;
         } else if (cond == APKLocalBeanFileSignedVar::NAME)
         {
-            if (sqlite3_prepare_v2(
-                    this->mSQL,
-                    T_SELECT_WITH_NAME,
-                    strlen(T_SELECT_WITH_NAME),
-                    &stmt,
-                    nullptr
-            ) != SQLITE_OK)
-                break;
+            if (con.getName() != value.getName())
+                continue;
         } else if (cond == APKLocalBeanFileSignedVar::SHA_1)
         {
-            if (sqlite3_prepare_v2(
-                    this->mSQL,
-                    T_SELECT_WITH_SHA1,
-                    strlen(T_SELECT_WITH_SHA1),
-                    &stmt,
-                    nullptr
-            ) != SQLITE_OK)
-                break;
+            if (con.getSHA1() != value.getSHA1())
+                continue;
         } else if (cond == APKLocalBeanFileSignedVar::SHA_256)
         {
-            if (sqlite3_prepare_v2(
-                    this->mSQL,
-                    T_SELECT_WITH_SHA256,
-                    strlen(T_SELECT_WITH_SHA256),
-                    &stmt,
-                    nullptr
-            ) != SQLITE_OK)
-                break;
+            if (con.getSHA256() != value.getSHA256())
+                continue;
         } else
         {
-            break;
+            continue;
         }
 
-        if (cond == APKLocalBeanFileSignedVar::ID)
-            sqlite3_bind_int(stmt, 1, value.getID());
-        else if (cond == APKLocalBeanFileSignedVar::FILE_ID)
-            sqlite3_bind_int(stmt, 1, value.getFileID());
-        else if (cond == APKLocalBeanFileSignedVar::NAME)
-            sqlite3_bind_text(stmt, 1, value.getName().data(), value.getName().length(), nullptr);
-        else if (cond == APKLocalBeanFileSignedVar::SHA_1)
-            sqlite3_bind_blob(stmt, 1, value.getSHA1().data(), value.getSHA1().size(), nullptr);
-        else
-            sqlite3_bind_blob(stmt, 1, value.getSHA256().data(), value.getSHA256().size(), nullptr);
+        array.push_back(con);
+    }
 
-        while (sqlite3_step(stmt) == SQLITE_ROW)
-        {
-            array.push_back(
-                    APKLocalBeanFileSignedCon().setID(sqlite3_column_int(stmt, 0))
-                            .setFileID(sqlite3_column_int(stmt, 1))
-                            .setName(reinterpret_cast<Jchar *>(const_cast<Jbyte *>(sqlite3_column_text(stmt, 2))))
-                            .setSHA1(
-                                    reinterpret_cast<Jbyte *>(const_cast<void *>(sqlite3_column_blob(stmt, 3))),
-                                    sqlite3_column_bytes(stmt, 3)
-                            )
-                            .setSHA256(
-                                    reinterpret_cast<Jbyte *>(const_cast<void *>(sqlite3_column_blob(stmt, 4))),
-                                    sqlite3_column_bytes(stmt, 4)
-                            )
-            );
-        }
-
-        state = true;
-    } while (false);
-
-    if (stmt != nullptr)
-        sqlite3_finalize(stmt);
-    return state;
+    return true;
 }
 
 Jbool APKLocalFileSigned::insert(APKLocalBeanFileSignedCon &value)
 {
-    Jbool        state = false;
-    sqlite3_stmt *stmt = nullptr;
-
-    do
-    {
-        if (sqlite3_prepare_v2(
-                this->mSQL,
-                T_INSERT,
-                strlen(T_INSERT),
-                &stmt,
-                nullptr
-        ) != SQLITE_OK)
-            break;
-
-        sqlite3_bind_int(stmt, 1, value.getFileID());
-        sqlite3_bind_text(stmt, 2, value.getName().data(), value.getName().length(), nullptr);
-        sqlite3_bind_blob(stmt, 3, value.getSHA1().data(), value.getSHA1().size(), nullptr);
-        sqlite3_bind_blob(stmt, 4, value.getSHA256().data(), value.getSHA256().size(), nullptr);
-
-        state = sqlite3_step(stmt) == SQLITE_DONE;
-    } while (false);
-
-    if (stmt != nullptr)
-        sqlite3_finalize(stmt);
-    return state;
+    this->mStores.push_back(value.setID(this->mIDAutoIndex));
+    ++this->mIDAutoIndex;
+    return true;
 }
 
 Jbool APKLocalFileSigned::update(
@@ -302,181 +124,87 @@ Jbool APKLocalFileSigned::update(
         APKLocalBeanFileSignedCon &write
 )
 {
-    Jbool        state = false;
-    sqlite3_stmt *stmt = nullptr;
-
-    do
+    for (auto &con : this->mStores)
     {
-        if (cond == APKLocalBeanFileSignedVar::FILE_ID)
+        if (con.getID() == 0)
+            continue;
+
+        if (cond == APKLocalBeanFileSignedVar::ID)
         {
-            if (sqlite3_prepare_v2(
-                    this->mSQL,
-                    T_UPDATE_WITH_FILE_ID,
-                    strlen(T_UPDATE_WITH_FILE_ID),
-                    &stmt,
-                    nullptr
-            ) != SQLITE_OK)
-                break;
+            if (con.getID() != value.getID())
+                continue;
+        } else if (cond == APKLocalBeanFileSignedVar::FILE_ID)
+        {
+            if (con.getFileID() != value.getFileID())
+                continue;
         } else if (cond == APKLocalBeanFileSignedVar::NAME)
         {
-            if (sqlite3_prepare_v2(
-                    this->mSQL,
-                    T_UPDATE_WITH_NAME,
-                    strlen(T_UPDATE_WITH_NAME),
-                    &stmt,
-                    nullptr
-            ) != SQLITE_OK)
-                break;
+            if (con.getName() != value.getName())
+                continue;
         } else if (cond == APKLocalBeanFileSignedVar::SHA_1)
         {
-            if (sqlite3_prepare_v2(
-                    this->mSQL,
-                    T_UPDATE_WITH_SHA1,
-                    strlen(T_UPDATE_WITH_SHA1),
-                    &stmt,
-                    nullptr
-            ) != SQLITE_OK)
-                break;
+            if (con.getSHA1() != value.getSHA1())
+                continue;
         } else if (cond == APKLocalBeanFileSignedVar::SHA_256)
         {
-            if (sqlite3_prepare_v2(
-                    this->mSQL,
-                    T_UPDATE_WITH_SHA256,
-                    strlen(T_UPDATE_WITH_SHA256),
-                    &stmt,
-                    nullptr
-            ) != SQLITE_OK)
-                break;
+            if (con.getSHA256() != value.getSHA256())
+                continue;
         } else
         {
-            break;
+            continue;
         }
 
-        sqlite3_bind_int(stmt, 1, write.getFileID());
-        sqlite3_bind_text(stmt, 2, write.getName().data(), write.getName().length(), nullptr);
-        sqlite3_bind_blob(stmt, 3, write.getSHA1().data(), write.getSHA1().size(), nullptr);
-        sqlite3_bind_blob(stmt, 4, write.getSHA256().data(), write.getSHA256().size(), nullptr);
+        con.setFileID(write.getFileID())
+                .setName(write.getName().c_str())
+                .setSHA1(write.getSHA1().data(), write.getSHA1().size())
+                .setSHA256(write.getSHA256().data(), write.getSHA256().size());
+    }
 
-        if (cond == APKLocalBeanFileSignedVar::FILE_ID)
-            sqlite3_bind_int(stmt, 5, value.getFileID());
-        else if (cond == APKLocalBeanFileSignedVar::NAME)
-            sqlite3_bind_text(stmt, 5, value.getName().data(), value.getName().length(), nullptr);
-        else if (cond == APKLocalBeanFileSignedVar::SHA_1)
-            sqlite3_bind_blob(stmt, 5, value.getSHA1().data(), value.getSHA1().size(), nullptr);
-        else
-            sqlite3_bind_blob(stmt, 5, value.getSHA256().data(), value.getSHA256().size(), nullptr);
-
-        state = sqlite3_step(stmt) == SQLITE_DONE;
-    } while (false);
-
-    if (stmt != nullptr)
-        sqlite3_finalize(stmt);
-    return state;
+    return true;
 }
 
 Jbool APKLocalFileSigned::remove()
 {
-    Jbool        state = false;
-    sqlite3_stmt *stmt = nullptr;
-
-    do
-    {
-        if (sqlite3_prepare_v2(
-                this->mSQL,
-                T_DELETE,
-                strlen(T_DELETE),
-                &stmt,
-                nullptr
-        ) != SQLITE_OK)
-            break;
-
-        state = sqlite3_step(stmt) == SQLITE_DONE;
-    } while (false);
-
-    if (stmt != nullptr)
-        sqlite3_finalize(stmt);
-    return state;
+    this->mIDAutoIndex = INDEX_START;
+    this->mStores.clear();
+    return true;
 }
 
 Jbool APKLocalFileSigned::remove(APKLocalBeanFileSignedVar cond, APKLocalBeanFileSignedCon &value)
 {
-    Jbool        state = false;
-    sqlite3_stmt *stmt = nullptr;
-
-    do
+    for (auto &con : this->mStores)
     {
+        if (con.getID() == 0)
+            continue;
+
         if (cond == APKLocalBeanFileSignedVar::ID)
         {
-            if (sqlite3_prepare_v2(
-                    this->mSQL,
-                    T_DELETE_WITH_ID,
-                    strlen(T_DELETE_WITH_ID),
-                    &stmt,
-                    nullptr
-            ) != SQLITE_OK)
-                break;
+            if (con.getID() != value.getID())
+                continue;
         } else if (cond == APKLocalBeanFileSignedVar::FILE_ID)
         {
-            if (sqlite3_prepare_v2(
-                    this->mSQL,
-                    T_DELETE_WITH_FILE_ID,
-                    strlen(T_DELETE_WITH_FILE_ID),
-                    &stmt,
-                    nullptr
-            ) != SQLITE_OK)
-                break;
+            if (con.getFileID() != value.getFileID())
+                continue;
         } else if (cond == APKLocalBeanFileSignedVar::NAME)
         {
-            if (sqlite3_prepare_v2(
-                    this->mSQL,
-                    T_DELETE_WITH_FILE_NAME,
-                    strlen(T_DELETE_WITH_FILE_NAME),
-                    &stmt,
-                    nullptr
-            ) != SQLITE_OK)
-                break;
+            if (con.getName() != value.getName())
+                continue;
         } else if (cond == APKLocalBeanFileSignedVar::SHA_1)
         {
-            if (sqlite3_prepare_v2(
-                    this->mSQL,
-                    T_DELETE_WITH_SHA1,
-                    strlen(T_DELETE_WITH_SHA1),
-                    &stmt,
-                    nullptr
-            ) != SQLITE_OK)
-                break;
+            if (con.getSHA1() != value.getSHA1())
+                continue;
         } else if (cond == APKLocalBeanFileSignedVar::SHA_256)
         {
-            if (sqlite3_prepare_v2(
-                    this->mSQL,
-                    T_DELETE_WITH_SHA256,
-                    strlen(T_DELETE_WITH_SHA256),
-                    &stmt,
-                    nullptr
-            ) != SQLITE_OK)
-                break;
+            if (con.getSHA256() != value.getSHA256())
+                continue;
         } else
         {
-            break;
+            continue;
         }
 
-        if (cond == APKLocalBeanFileSignedVar::ID)
-            sqlite3_bind_int(stmt, 1, value.getID());
-        else if (cond == APKLocalBeanFileSignedVar::FILE_ID)
-            sqlite3_bind_int(stmt, 1, value.getFileID());
-        else if (cond == APKLocalBeanFileSignedVar::NAME)
-            sqlite3_bind_text(stmt, 1, value.getName().data(), value.getName().length(), nullptr);
-        else if (cond == APKLocalBeanFileSignedVar::SHA_1)
-            sqlite3_bind_blob(stmt, 1, value.getSHA1().data(), value.getSHA1().size(), nullptr);
-        else
-            sqlite3_bind_blob(stmt, 1, value.getSHA256().data(), value.getSHA256().size(), nullptr);
-
-        state = sqlite3_step(stmt) == SQLITE_DONE;
-    } while (false);
-
-    if (stmt != nullptr)
-        sqlite3_finalize(stmt);
-    return state;
+        con.setID(0);
+    }
+    return true;
 }
 
 }

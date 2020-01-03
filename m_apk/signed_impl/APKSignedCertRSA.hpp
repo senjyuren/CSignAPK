@@ -24,6 +24,7 @@ private:
 
     std::string mRootDir;
     std::string mPathFile;
+    std::string mZipPathFile;
 
     std::fstream mOutFile;
 
@@ -52,6 +53,8 @@ public:
     void signContentStream(const Jchar *name, const Jchar *v, Jint vLen) override;
 
     void signStreamEnd() override;
+
+    const std::string &getPath();
 };
 
 APKSignedCertRSA::Builder::Builder()
@@ -75,6 +78,7 @@ APKSignedCertRSA::APKSignedCertRSA(Builder *builder)
           , mOutPath{builder->mOutPath}
           , mRootDir{}
           , mPathFile{}
+          , mZipPathFile{}
           , mOutFile{}
 {
     this->mRootDir.append(this->mOutPath)
@@ -113,7 +117,13 @@ void APKSignedCertRSA::signContentStream(const Jchar *name, const Jchar *v, Jint
 
 void APKSignedCertRSA::signStreamEnd()
 {
+    this->mOutFile.flush();
+}
 
+const std::string &APKSignedCertRSA::getPath()
+{
+    auto &&point = this->mPathFile.find(DEFAULT_DIR) + 1;
+    return (this->mZipPathFile = this->mPathFile.substr(point));
 }
 
 }

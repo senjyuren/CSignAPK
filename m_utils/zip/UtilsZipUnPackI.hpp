@@ -14,11 +14,13 @@ class UtilsZipUnPackI
 public:
     virtual ~UtilsZipUnPackI();
 
-    virtual void add(UtilsZipUnPackInterceptI *v) = 0;
+    virtual void addInBacklist(const char *v) = 0;
 
-    virtual void clean() = 0;
+    virtual void addIntercept(UtilsZipUnPackInterceptI *v) = 0;
 
-    virtual void stream(const Jchar *in, const Jchar *out) = 0;
+    virtual void cleanIntercept() = 0;
+
+    virtual void streamIntercept(const Jchar *in, const Jchar *out) = 0;
 };
 
 UtilsZipUnPackI::~UtilsZipUnPackI() = default;

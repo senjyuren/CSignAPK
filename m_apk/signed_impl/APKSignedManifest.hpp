@@ -19,7 +19,7 @@ public:
     class Builder;
 
 private:
-    constexpr static Jint WRITE_SIZE         = 512;
+    constexpr static Jint WRITE_SIZE         = 2048;
     constexpr static Jint LIMIT_NAME_SIZE    = 64;
     constexpr static Jint LIMIT_NAME_EX_SIZE = 64;
 
@@ -29,7 +29,7 @@ private:
     constexpr static Jchar DEFAULT_TEMPLATE_HEAD[]           =
                                    "Manifest-Version: 1.0\r\n"
                                    "Built-By: Generated-by-ADT\r\n"
-                                   "Created-By: SenJyuren\r\n\r\n";
+                                   "Created-By: Android Gradle 3.1.0\r\n\r\n";
     constexpr static Jchar DEFAULT_TEMPLATE_CONTENT[]        =
                                    "Name: %s\r\n"
                                    "SHA-256-Digest: %s\r\n\r\n";
@@ -44,6 +44,7 @@ private:
 
     std::string mRootDir;
     std::string mPathFile;
+    std::string mZipPathFile;
 
     std::fstream mOutFile;
     Jchar        mWirteCache[WRITE_SIZE];
@@ -89,6 +90,8 @@ public:
     void notifyContentUpdate(const Jchar *name, const Jchar *v, Jint vLen);
 
     void notifyContentEnd(const Jchar *name);
+
+    const std::string &getPath();
 };
 
 APKSignedManifest::Builder::Builder()
@@ -125,6 +128,7 @@ APKSignedManifest::APKSignedManifest(APKSignedManifest::Builder *builder)
           , mOutPath{builder->mOutPath}
           , mRootDir{}
           , mPathFile{}
+          , mZipPathFile{}
           , mOutFile{}
           , mWirteCache{}
           , mLimitName{}
@@ -199,18 +203,18 @@ void APKSignedManifest::signContentStream(const Jchar *name, const Jchar *v, Jin
 
 void APKSignedManifest::signStreamEnd()
 {
-    Jint ret = 0;
-
+    this->mOutFile.flush();
+    this->mOutFile.clear();
+    this->mOutFile.seekg(std::ios::beg);
     this->notifyContentStart(this->mPathFile.c_str());
 
     do
     {
-        ret = this->mOutFile.readsome(this->mWirteCache, sizeof(this->mWirteCache));
-        this->notifyContentUpdate(this->mPathFile.c_str(), this->mWirteCache, ret);
-    } while (ret == sizeof(this->mWirteCache));
+        this->mOutFile.read(this->mWirteCache, sizeof(this->mWirteCache));
+        this->notifyContentUpdate(this->mPathFile.c_str(), this->mWirteCache, this->mOutFile.gcount());
+    } while (this->mOutFile.gcount() == sizeof(this->mWirteCache));
 
     this->notifyContentEnd(this->mPathFile.c_str());
-
 }
 
 void APKSignedManifest::notifyBlock(const Jchar *name, const Jchar *v, Jint vLen)
@@ -235,6 +239,12 @@ void APKSignedManifest::notifyContentEnd(const Jchar *name)
 {
     for (auto &block : this->mBlocks)
         block->manifestContentEnd(name);
+}
+
+const std::string &APKSignedManifest::getPath()
+{
+    auto &&point = this->mPathFile.find(DEFAULT_DIR) + 1;
+    return (this->mZipPathFile = this->mPathFile.substr(point));
 }
 
 }

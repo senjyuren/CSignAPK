@@ -3,12 +3,14 @@
 #ifndef CSIGNAPK_UTILSZIP_HPP
 #define CSIGNAPK_UTILSZIP_HPP
 
+#include <utility>
+
 #include "zip/UtilsZipUnPackInterceptI.hpp"
+#include "zip/UtilsZipPackI.hpp"
 #include "zip/UtilsZipUnPackI.hpp"
 
-#include "zip/UtilsZipMode.hpp"
-#include "zip/UtilsZipPack.hpp"
-#include "zip/UtilsZipUnPack.hpp"
+#include "zip/UtilsZipPackZLIB.hpp"
+#include "zip/UtilsZipUnPackZLIB.hpp"
 
 namespace m
 {
@@ -22,34 +24,49 @@ public:
     class Builder;
 
 private:
+    constexpr static Jchar DIR_OF_TEMP[] = "csign_apk_v1_0_2020_01_02_13_50";
+
     Builder *mBuilder;
 
-    UtilsZipMode &mMode;
-    std::string  &mInPath;
-    std::string  &mOuPath;
+    std::shared_ptr<UtilsZipPackI> &mPack;
+    std::string                    &mInPath;
+    std::string                    &mOuPath;
+    std::vector<std::string>       &mZipAllFilePath;
+    std::vector<std::string>       &mRootAllFilePath;
+
+    std::string mTempPath;
 
 public:
     class Builder
     {
     private:
-        std::unique_ptr<UtilsZipUnPackI> mUnPack;
+        std::shared_ptr<UtilsZipPackI>   mPack;
+        std::shared_ptr<UtilsZipUnPackI> mUnPack;
 
-        UtilsZipMode mMode;
-        std::string  mInPath;
-        std::string  mOuPath;
+        Jbool                    mNotCallUnPack;
+        std::string              mInPath;
+        std::string              mOuPath;
+        std::vector<std::string> mZipAllFilePath;
+        std::vector<std::string> mRootAllFilePath;
 
     public:
         friend UtilsZip;
 
         Builder();
 
+        Builder(std::vector<std::string> allZip, std::vector<std::string> allRoot);
+
         ~Builder();
+
+        Builder &isOnlyPack();
 
         Builder &setInputPath(const Jchar *v);
 
         Builder &setOutputPath(const Jchar *v);
 
-        Builder &setMode(UtilsZipMode mode);
+        Builder &addFileNameToBacklist(const Jchar *v);
+
+        Builder &addFileToPack(const Jchar *v);
 
         Builder &addUnPackSteam(UtilsZipUnPackInterceptI *intercept);
 
@@ -59,19 +76,49 @@ public:
     explicit UtilsZip(Builder *builder);
 
     ~UtilsZip();
+
+    void pack();
+
+    const std::vector<std::string> &getAllZipPath();
+
+    const std::vector<std::string> &getAllRootPath();
 };
 
 UtilsZip::Builder::Builder()
-        : mUnPack{new UtilsZipUnPack()}
-          , mMode{}
+        : mPack{}
+          , mUnPack{}
+          , mNotCallUnPack{}
           , mInPath{}
           , mOuPath{}
+          , mZipAllFilePath{}
+          , mRootAllFilePath{}
 {
+    this->mPack   = std::make_shared<UtilsZipPackZLIB>(this->mZipAllFilePath, this->mRootAllFilePath);
+    this->mUnPack = std::make_shared<UtilsZipUnPackZLIB>(this->mZipAllFilePath, this->mRootAllFilePath);
+}
+
+UtilsZip::Builder::Builder(std::vector<std::string> allZip, std::vector<std::string> allRoot)
+        : mPack{}
+          , mUnPack{}
+          , mNotCallUnPack{}
+          , mInPath{}
+          , mOuPath{}
+          , mZipAllFilePath{std::move(allZip)}
+          , mRootAllFilePath{std::move(allRoot)}
+{
+    this->mPack   = std::make_shared<UtilsZipPackZLIB>(this->mZipAllFilePath, this->mRootAllFilePath);
+    this->mUnPack = std::make_shared<UtilsZipUnPackZLIB>(this->mZipAllFilePath, this->mRootAllFilePath);
 }
 
 UtilsZip::Builder::~Builder()
 {
-    this->mUnPack->clean();
+    this->mUnPack->cleanIntercept();
+}
+
+UtilsZip::Builder &UtilsZip::Builder::isOnlyPack()
+{
+    this->mNotCallUnPack = true;
+    return (*this);
 }
 
 UtilsZip::Builder &UtilsZip::Builder::setInputPath(const Jchar *v)
@@ -86,15 +133,21 @@ UtilsZip::Builder &UtilsZip::Builder::setOutputPath(const Jchar *v)
     return (*this);
 }
 
-UtilsZip::Builder &UtilsZip::Builder::setMode(UtilsZipMode mode)
+UtilsZip::Builder &UtilsZip::Builder::addFileNameToBacklist(const Jchar *v)
 {
-    this->mMode = mode;
+    this->mUnPack->addInBacklist(v);
+    return (*this);
+}
+
+UtilsZip::Builder &UtilsZip::Builder::addFileToPack(const Jchar *v)
+{
+    this->mPack->addFile(v);
     return (*this);
 }
 
 UtilsZip::Builder &UtilsZip::Builder::addUnPackSteam(UtilsZipUnPackInterceptI *intercept)
 {
-    this->mUnPack->add(intercept);
+    this->mUnPack->addIntercept(intercept);
     return (*this);
 }
 
@@ -105,17 +158,40 @@ std::shared_ptr<UtilsZip> UtilsZip::Builder::build()
 
 UtilsZip::UtilsZip(Builder *builder)
         : mBuilder{builder}
-          , mMode{builder->mMode}
+          , mPack{builder->mPack}
           , mInPath{builder->mInPath}
           , mOuPath{builder->mOuPath}
+          , mZipAllFilePath{builder->mZipAllFilePath}
+          , mRootAllFilePath{builder->mRootAllFilePath}
+          , mTempPath{}
 {
-    if (this->mMode == UtilsZipMode::UN_PACK)
-        builder->mUnPack->stream(this->mInPath.c_str(), this->mOuPath.c_str());
+    this->mTempPath = std::filesystem::temp_directory_path().string();
+    this->mTempPath.append(DIR_OF_TEMP);
+
+    if (!builder->mNotCallUnPack)
+        builder->mUnPack->streamIntercept(this->mInPath.c_str(), this->mTempPath.c_str());
 }
 
 UtilsZip::~UtilsZip()
 {
     delete (this->mBuilder);
+}
+
+void UtilsZip::pack()
+{
+    this->mPack->pack(this->mTempPath.c_str(), this->mOuPath.c_str());
+    if (std::filesystem::exists(this->mTempPath))
+        std::filesystem::remove_all(this->mTempPath);
+}
+
+const std::vector<std::string> &UtilsZip::getAllZipPath()
+{
+    return this->mZipAllFilePath;
+}
+
+const std::vector<std::string> &UtilsZip::getAllRootPath()
+{
+    return this->mRootAllFilePath;
 }
 
 }

@@ -25,17 +25,11 @@ class UtilsPKCSType7OpenSSL
         : public UtilsPKCSType7I
 {
 private:
-    constexpr static Jint OID_SIZE       = 128;
     constexpr static Jint READ_CACHE_MAX = 512;
-
-    constexpr static Jchar SHA1_WITH_RSA_ENCRYPTION[]   = "sha1WithRSAEncryption";
-    constexpr static Jchar SHA224_WITH_RSA_ENCRYPTION[] = "sha224WithRSAEncryption";
-    constexpr static Jchar SHA256_WITH_RSA_ENCRYPTION[] = "sha256WithRSAEncryption";
-    constexpr static Jchar SHA384_WITH_RSA_ENCRYPTION[] = "sha384WithRSAEncryption";
-    constexpr static Jchar SHA512_WITH_RSA_ENCRYPTION[] = "sha512WithRSAEncryption";
 
     std::vector<Jbyte> mKeyPEM;
     std::vector<Jbyte> mCertPEM;
+    std::vector<Jbyte> mSignContent;
 
     BIO                 *mKeyBIO;
     BIO                 *mCertBIO;
@@ -43,10 +37,8 @@ private:
     X509                *mCertCon;
     PKCS8_PRIV_KEY_INFO *mPkeyInfo;
     EVP_PKEY            *mPkeyCon;
-    X509_ALGOR          *mAlgo;
     PKCS7               *mPKCS7;
 
-    Jchar mOID[OID_SIZE];
     Jchar mReadCache[READ_CACHE_MAX];
 
 public:
@@ -62,15 +54,14 @@ public:
 UtilsPKCSType7OpenSSL::UtilsPKCSType7OpenSSL(const Jchar *keyPath, const Jchar *certPath)
         : mKeyPEM{}
           , mCertPEM{}
+          , mSignContent{}
           , mKeyBIO{}
           , mCertBIO{}
           , mPKCS7BIO{}
           , mCertCon{}
           , mPkeyInfo{}
           , mPkeyCon{}
-          , mAlgo{}
           , mPKCS7{}
-          , mOID{}
           , mReadCache{}
 {
     Jint i = 0;
@@ -113,26 +104,12 @@ Jbool UtilsPKCSType7OpenSSL::pkcs7Ready()
     this->mPkeyInfo = d2i_PKCS8_PRIV_KEY_INFO_bio(this->mKeyBIO, nullptr);
     this->mPkeyCon  = EVP_PKCS82PKEY(this->mPkeyInfo);
 
-    memset(this->mOID, 0, sizeof(this->mOID));
-    this->mAlgo = const_cast<X509_ALGOR *>(X509_get0_tbs_sigalg(this->mCertCon));
-    OBJ_obj2txt(this->mOID, sizeof(this->mOID), this->mAlgo->algorithm, 0);
-
     this->mPKCS7 = PKCS7_new();
     PKCS7_set_type(this->mPKCS7, NID_pkcs7_signed);
     PKCS7_add_certificate(this->mPKCS7, this->mCertCon);
     PKCS7_content_new(this->mPKCS7, NID_pkcs7_data);
     PKCS7_set_detached(this->mPKCS7, 1);
-
-    if (UtilsString::Equals(this->mOID, SHA1_WITH_RSA_ENCRYPTION))
-        PKCS7_add_signature(this->mPKCS7, this->mCertCon, this->mPkeyCon, EVP_sha1());
-    else if (UtilsString::Equals(this->mOID, SHA224_WITH_RSA_ENCRYPTION))
-        PKCS7_add_signature(this->mPKCS7, this->mCertCon, this->mPkeyCon, EVP_sha224());
-    else if (UtilsString::Equals(this->mOID, SHA256_WITH_RSA_ENCRYPTION))
-        PKCS7_add_signature(this->mPKCS7, this->mCertCon, this->mPkeyCon, EVP_sha256());
-    else if (UtilsString::Equals(this->mOID, SHA384_WITH_RSA_ENCRYPTION))
-        PKCS7_add_signature(this->mPKCS7, this->mCertCon, this->mPkeyCon, EVP_sha384());
-    else if (UtilsString::Equals(this->mOID, SHA512_WITH_RSA_ENCRYPTION))
-        PKCS7_add_signature(this->mPKCS7, this->mCertCon, this->mPkeyCon, EVP_sha512());
+    PKCS7_add_signature(this->mPKCS7, this->mCertCon, this->mPkeyCon, EVP_sha256());
 
     this->mPKCS7BIO = PKCS7_dataInit(this->mPKCS7, nullptr);
     return true;
@@ -151,6 +128,7 @@ Jbool UtilsPKCSType7OpenSSL::pkcs7Done(std::vector<Jbyte> &ret)
 
     PKCS7_dataFinal(this->mPKCS7, this->mPKCS7BIO);
     retLen = i2d_PKCS7(this->mPKCS7, &retPtr);
+    ret.clear();
     for (i = 0; i < retLen; ++i)
         ret.push_back(retPtr[i]);
 
@@ -170,15 +148,6 @@ Jbool UtilsPKCSType7OpenSSL::pkcs7Done(std::vector<Jbyte> &ret)
         BIO_free(this->mCertBIO);
     if (this->mKeyBIO != nullptr)
         BIO_free(this->mKeyBIO);
-
-    this->mPKCS7BIO = nullptr;
-    this->mPkeyInfo = nullptr;
-    this->mAlgo     = nullptr;
-    this->mPKCS7    = nullptr;
-    this->mPkeyCon  = nullptr;
-    this->mCertCon  = nullptr;
-    this->mCertBIO  = nullptr;
-    this->mKeyBIO   = nullptr;
     return true;
 }
 

@@ -5,19 +5,4 @@
 
 #include "APKObjects.hpp"
 
-namespace m
-{
-
-inline namespace apk
-{
-
-class APKObjectsQueue
-{
-
-};
-
-}
-
-}
-
 #endif //CSIGNAPK_APKOBJECTSQUEUE_HPP

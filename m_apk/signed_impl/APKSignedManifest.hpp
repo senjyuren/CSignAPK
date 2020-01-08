@@ -157,20 +157,20 @@ APKSignedManifest::APKSignedManifest(APKSignedManifest::Builder *builder)
 APKSignedManifest::~APKSignedManifest()
 {
     this->mOutFile.close();
+    std::filesystem::remove(this->mPathFile);
     delete (this->mBuilder);
 }
 
-void APKSignedManifest::signHeadStream(const Jchar *name, const Jchar *v, Jint vLen)
+void APKSignedManifest::signHeadStream(const Jchar *, const Jchar *, Jint)
 {
 
 }
 
-void APKSignedManifest::signContentStream(const Jchar *name, const Jchar *v, Jint vLen)
+void APKSignedManifest::signContentStream(const Jchar *name, const Jchar *v, Jint)
 {
     Jint ret = 0;
 
     auto &&nameLen = strlen(name);
-    memset(this->mWirteCache, 0, sizeof(this->mWirteCache));
     if (nameLen > LIMIT_NAME_SIZE)
     {
         memset(this->mLimitName, 0, sizeof(this->mLimitName));
@@ -197,6 +197,7 @@ void APKSignedManifest::signContentStream(const Jchar *name, const Jchar *v, Jin
         );
     }
 
+    this->mWirteCache[ret + 1] = 0x00;
     this->notifyBlock(name, this->mWirteCache, ret);
     this->mOutFile.write(this->mWirteCache, ret);
 }

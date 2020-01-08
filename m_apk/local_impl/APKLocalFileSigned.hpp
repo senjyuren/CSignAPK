@@ -53,7 +53,7 @@ APKLocalFileSigned::APKLocalFileSigned()
 {
 }
 
-void APKLocalFileSigned::start(const Jchar *path)
+void APKLocalFileSigned::start(const Jchar *)
 {
 }
 

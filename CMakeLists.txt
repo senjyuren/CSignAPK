@@ -1,18 +1,62 @@
-CMAKE_MINIMUM_REQUIRED(VERSION 3.15)
+CMAKE_MINIMUM_REQUIRED(VERSION 3.14)
 PROJECT(CSignAPK)
 
-SET(CMAKE_CXX_STANDARD 17)
+SET(SJR_PROJ_NOT_NEED_MSVC TRUE)
+IF (("${CMAKE_C_COMPILER_ID}" STREQUAL "MSVC") OR ("${CMAKE_CXX_COMPILER_ID}" STREQUAL "MSVC"))
+    SET(SJR_PROJ_NOT_NEED_MSVC FALSE)
+ENDIF ()
 
-ADD_DEFINITIONS("/DZLIB_WINAPI")
-ADD_DEFINITIONS("/D_WIN32")
+IF (NOT SJR_3RD_JEMALLOC)
+    MESSAGE(FATAL_ERROR "This project need the Jemalloc support")
+ENDIF ()
 
-INCLUDE_DIRECTORIES(D:/work/Libary/openssl_install_static/include)
-INCLUDE_DIRECTORIES(D:/work/Libary/zlib-1.2.11/build_windows/include)
-INCLUDE_DIRECTORIES(D:/work/Libary/libdeflate-1.5-windows-i686-bin)
+IF (NOT SJR_3RD_OPENSSL)
+    MESSAGE(FATAL_ERROR "This project need the OpenSSL support")
+ENDIF ()
+
+IF (NOT SJR_3RD_ZLIB)
+    MESSAGE(FATAL_ERROR "This project need the zLib support")
+ENDIF ()
+
+IF (SJR_OS_WINDOWS)
+    # Windows 编译环境设置
+    # 这里是为了方便项目在Clion中切换VS前端编译器cl识别用的
+    IF (SJR_PROJ_NOT_NEED_MSVC)
+        ADD_DEFINITIONS(-Werror -Wall -Wextra -Wno-format-security -Wno-deprecated-declarations)
+    ELSE ()
+        SET(CMAKE_CXX_STANDARD 17)
+    ENDIF ()
+
+    ADD_DEFINITIONS(-D_WIN32)
+    ADD_DEFINITIONS(-DZLIB_WINAPI)
+    ADD_DEFINITIONS(-D_SJR_OS_WINDOWS)
+
+    INCLUDE_DIRECTORIES(${SJR_3RD_ZLIB}/include)
+    INCLUDE_DIRECTORIES(${SJR_3RD_OPENSSL}/include)
+    INCLUDE_DIRECTORIES(${SJR_3RD_JEMALLOC}/include)
+
+    SET(SYSTEM_LIB "")
+    STRING(APPEND SYSTEM_LIB "-l${SJR_3RD_ZLIB}/lib/zlibstat.lib")
+    STRING(APPEND SYSTEM_LIB " -l${SJR_3RD_OPENSSL}/lib/libssl.lib")
+    STRING(APPEND SYSTEM_LIB " -l${SJR_3RD_OPENSSL}/lib/libcrypto.lib")
+    STRING(APPEND SYSTEM_LIB " -l${SJR_3RD_JEMALLOC}/lib/jemalloc.lib")
+
+    STRING(APPEND SYSTEM_LIB " -lws2_32 -lcrypt32 -lAdvapi32")
+
+    # 使用链接参数让GUI界面显示的时候不会出现命令行
+    IF (SJR_PROJ_NOT_NEED_CMD)
+        STRING(APPEND SYSTEM_LIB " -Wl,/SUBSYSTEM:WINDOWS -Wl,/ENTRY:mainCRTStartup")
+    ENDIF ()
+    SET(CMAKE_STATIC_LINKER_FLAGS "${SYSTEM_LIB}")
+ENDIF ()
+
+# 重置编译后的格式
+IF ((SJR_OS_ANDROID) OR (SJR_OS_LINUX))
+    SET(CMAKE_STATIC_LIBRARY_SUFFIX ".so")
+ELSE ()
+    SET(CMAKE_EXECUTABLE_SUFFIX ".exe")
+    SET(CMAKE_STATIC_LIBRARY_SUFFIX ".dll")
+ENDIF ()
 
 ADD_EXECUTABLE(CSignAPK main.cpp)
-TARGET_LINK_LIBRARIES(CSignAPK
-        D:/work/Libary/openssl_install_static/lib/libssl.lib
-        D:/work/Libary/openssl_install_static/lib/libcrypto.lib
-        D:/work/Libary/zlib-1.2.11/build_windows/lib/zlibstat.lib
-        D:/work/Libary/libdeflate-1.5-windows-i686-bin/libdeflatestatic.lib)
+TARGET_LINK_LIBRARIES(CSignAPK ${THIRD_LIB} ${SYSTEM_LIB})

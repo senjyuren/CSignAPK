@@ -32,7 +32,7 @@ private:
 public:
     UtilsZipUnPackZLIB(std::vector<std::string> &zipAllPath, std::vector<std::string> &rootAllPath);
 
-    void addInBacklist(const char *v) override;
+    void addInBacklist(const Jchar *v) override;
 
     void addIntercept(UtilsZipUnPackInterceptI *v) override;
 
@@ -57,7 +57,7 @@ UtilsZipUnPackZLIB::UtilsZipUnPackZLIB(std::vector<std::string> &zipAllPath, std
 {
 }
 
-void UtilsZipUnPackZLIB::addInBacklist(const char *v)
+void UtilsZipUnPackZLIB::addInBacklist(const Jchar *v)
 {
     this->mFileNameBacklist.emplace_back(v);
 }

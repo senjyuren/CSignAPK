@@ -102,15 +102,16 @@ APKSignedCertRSA::APKSignedCertRSA(Builder *builder)
 APKSignedCertRSA::~APKSignedCertRSA()
 {
     this->mOutFile.close();
+    std::filesystem::remove(this->mPathFile);
     delete (this->mBuilder);
 }
 
-void APKSignedCertRSA::signHeadStream(const Jchar *name, const Jchar *v, Jint vLen)
+void APKSignedCertRSA::signHeadStream(const Jchar *, const Jchar *, Jint)
 {
 
 }
 
-void APKSignedCertRSA::signContentStream(const Jchar *name, const Jchar *v, Jint vLen)
+void APKSignedCertRSA::signContentStream(const Jchar *, const Jchar *v, Jint vLen)
 {
     this->mOutFile.write(v, vLen);
 }

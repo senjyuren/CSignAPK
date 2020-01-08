@@ -157,10 +157,11 @@ APKSignedCert::APKSignedCert(Builder *builder)
 APKSignedCert::~APKSignedCert()
 {
     this->mOutFile.close();
+    std::filesystem::remove(this->mPathFile);
     delete (this->mBuilder);
 }
 
-void APKSignedCert::signHeadStream(const Jchar *name, const Jchar *v, Jint vLen)
+void APKSignedCert::signHeadStream(const Jchar *, const Jchar *v, Jint)
 {
     Jint ret = 0;
 
@@ -168,12 +169,11 @@ void APKSignedCert::signHeadStream(const Jchar *name, const Jchar *v, Jint vLen)
     this->mFileHead.append(this->mWriteCache, ret);
 }
 
-void APKSignedCert::signContentStream(const Jchar *name, const Jchar *v, Jint vLen)
+void APKSignedCert::signContentStream(const Jchar *name, const Jchar *v, Jint)
 {
     Jint ret = 0;
 
     auto &&nameLen = strlen(name);
-    memset(this->mWriteCache, 0, sizeof(this->mWriteCache));
     if (nameLen > LIMIT_NAME_SIZE)
     {
         memset(this->mLimitName, 0, sizeof(this->mLimitName));
@@ -200,6 +200,7 @@ void APKSignedCert::signContentStream(const Jchar *name, const Jchar *v, Jint vL
         );
     }
 
+    this->mWriteCache[ret + 1] = 0x00;
     this->mFileContent.append(this->mWriteCache, ret);
 }
 

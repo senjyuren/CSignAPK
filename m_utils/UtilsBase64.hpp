@@ -34,7 +34,8 @@ Jbool UtilsBase64::Encrypt(const Jbyte *v, Jint vLen, std::string &ret)
 
 Jbool UtilsBase64::Decrypt(const Jchar *v, std::vector<Jbyte> &ret)
 {
-    Jint vLen = 0;
+    Jint vLen   = 0;
+    Jint retLen = 0;
 
     if (v == nullptr)
         return false;
@@ -42,7 +43,9 @@ Jbool UtilsBase64::Decrypt(const Jchar *v, std::vector<Jbyte> &ret)
     vLen = strlen(v);
     ret.clear();
     ret.resize(vLen);
-    return (EVP_DecodeBlock(&ret[0], reinterpret_cast<Jbyte *>(const_cast<Jchar *>(v)), vLen));
+    retLen = EVP_DecodeBlock(&ret[0], reinterpret_cast<Jbyte *>(const_cast<Jchar *>(v)), vLen);
+    ret.resize(retLen);
+    return (retLen);
 }
 
 UtilsBase64::UtilsBase64() = default;

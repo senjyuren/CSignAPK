@@ -48,12 +48,12 @@ public:
     class Builder
     {
     private:
-        APKLocalFactory *mLocalFactory;
+        std::shared_ptr<APKLocalEnv> mLocalEnv;
 
         std::string mAPKPath;
         std::string mAPKOutPath;
-        std::string mKeyPath;
-        std::string mCertPath;
+        std::string mKey;
+        std::string mCert;
 
     public:
         friend APKObjects;
@@ -64,11 +64,9 @@ public:
 
         Builder &setAPKOutPath(const Jchar *v);
 
-        Builder &setPrivateKeyPath(const Jchar *v);
+        Builder &setPrivateKey(const Jchar *v);
 
-        Builder &setCertPath(const Jchar *v);
-
-        Builder &setLocalFactory(APKLocalFactory &factory);
+        Builder &setCert(const Jchar *v);
 
         std::shared_ptr<APKObjects> build();
     };
@@ -99,13 +97,14 @@ public:
 };
 
 APKObjects::Builder::Builder()
-        : mLocalFactory{&APKLocalFactory::getInstance()}
+        : mLocalEnv{}
           , mAPKPath{}
           , mAPKOutPath{DEFAULT_OUT_DIR}
+          , mKey{}
+          , mCert{}
 {
-    auto &&dbEnv = (new APKLocalEnv::Builder())
+    this->mLocalEnv = (new APKLocalEnv::Builder())
             ->build();
-    this->mLocalFactory = &APKLocalFactory::getInstance().init(dbEnv);
 }
 
 APKObjects::Builder &APKObjects::Builder::setAPKPath(const Jchar *v)
@@ -121,21 +120,15 @@ APKObjects::Builder &APKObjects::Builder::setAPKOutPath(const Jchar *v)
     return (*this);
 }
 
-APKObjects::Builder &APKObjects::Builder::setPrivateKeyPath(const Jchar *v)
+APKObjects::Builder &APKObjects::Builder::setPrivateKey(const Jchar *v)
 {
-    this->mKeyPath.append(v);
+    this->mKey.append(v);
     return (*this);
 }
 
-APKObjects::Builder &APKObjects::Builder::setCertPath(const Jchar *v)
+APKObjects::Builder &APKObjects::Builder::setCert(const Jchar *v)
 {
-    this->mCertPath.append(v);
-    return (*this);
-}
-
-APKObjects::Builder &APKObjects::Builder::setLocalFactory(class m::apk::APKLocalFactory &factory)
-{
-    this->mLocalFactory = &factory;
+    this->mCert.append(v);
     return (*this);
 }
 
@@ -146,7 +139,7 @@ std::shared_ptr<APKObjects> APKObjects::Builder::build()
 
 APKObjects::APKObjects(Builder *builder)
         : mBuilder{builder}
-          , mFileSign{builder->mLocalFactory->getFileSign()}
+          , mFileSign{builder->mLocalEnv->getFileSign()}
           , mSelectArray{}
           , mSignedCert{}
           , mSignedCertRSA{}
@@ -159,7 +152,7 @@ APKObjects::APKObjects(Builder *builder)
     this->mFileSign.remove();
 
     this->mPKCSAdapter = (new UtilsPKCSAdapter::Builder())
-            ->setKeyAndCertPath(builder->mKeyPath.c_str(), builder->mCertPath.c_str())
+            ->setKeyAndCert(builder->mKey.c_str(), builder->mCert.c_str())
             .build();
     this->mSHAAdapter  = (new UtilsSHAAdapter::Builder())
             ->build();
@@ -217,13 +210,13 @@ APKObjects::~APKObjects()
     delete (this->mBuilder);
 }
 
-void APKObjects::unPackStart(const Jchar *, const Jchar *path)
+void APKObjects::unPackStart(const Jchar *, const Jchar *)
 {
     this->mSHAAdapter->getSHA1().sha1Ready();
     this->mSHAAdapter->getSHA256().sha256Ready();
 }
 
-void APKObjects::unPackEnd(const Jchar *name, const Jchar *path)
+void APKObjects::unPackEnd(const Jchar *name, const Jchar *)
 {
     APKLocalBeanFileSignedCon sign;
 
@@ -246,7 +239,7 @@ void APKObjects::unPackEnd(const Jchar *name, const Jchar *path)
         this->mFileSign.update(APKLocalBeanFileSignedVar::NAME, APKLocalBeanFileSignedCon().setName(name), sign);
 }
 
-void APKObjects::unPackStream(const Jchar *, const Jchar *path, const Jbyte *v, Jint vLen)
+void APKObjects::unPackStream(const Jchar *, const Jchar *, const Jbyte *v, Jint vLen)
 {
     this->mSHAAdapter->getSHA1().sha1Process(v, vLen);
     this->mSHAAdapter->getSHA256().sha256Process(v, vLen);

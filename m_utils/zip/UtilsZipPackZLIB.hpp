@@ -68,7 +68,7 @@ void UtilsZipPackZLIB::pack(const Jchar *in, const Jchar *out)
     }
 
     memset(&zipFileInfo, 0, sizeof(zipFileInfo));
-    for (i = 0; i < this->mRootAllFilePath.size(); ++i)
+    for (i = 0; i < static_cast<Jint>(this->mRootAllFilePath.size()); ++i)
     {
         if (zipOpenNewFileInZip(
                 zipFile,

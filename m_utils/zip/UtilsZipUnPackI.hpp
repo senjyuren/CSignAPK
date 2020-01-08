@@ -14,7 +14,7 @@ class UtilsZipUnPackI
 public:
     virtual ~UtilsZipUnPackI();
 
-    virtual void addInBacklist(const char *v) = 0;
+    virtual void addInBacklist(const Jchar *v) = 0;
 
     virtual void addIntercept(UtilsZipUnPackInterceptI *v) = 0;
 

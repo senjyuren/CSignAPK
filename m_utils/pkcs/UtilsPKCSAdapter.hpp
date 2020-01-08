@@ -26,8 +26,8 @@ public:
     class Builder
     {
     private:
-        std::string     mKeyPath;
-        std::string     mCertPath;
+        std::string     mKey;
+        std::string     mCert;
         UtilsPKCSType7I *mType7;
 
     public:
@@ -35,7 +35,7 @@ public:
 
         Builder();
 
-        Builder &setKeyAndCertPath(const Jchar *keyPath, const Jchar *certPath);
+        Builder &setKeyAndCert(const Jchar *key, const Jchar *cert);
 
         Builder &setPKCS7(UtilsPKCSType7I *v);
 
@@ -50,16 +50,16 @@ public:
 };
 
 UtilsPKCSAdapter::Builder::Builder()
-        : mKeyPath{}
-          , mCertPath{}
+        : mKey{}
+          , mCert{}
           , mType7{}
 {
 }
 
-UtilsPKCSAdapter::Builder &UtilsPKCSAdapter::Builder::setKeyAndCertPath(const Jchar *keyPath, const Jchar *certPath)
+UtilsPKCSAdapter::Builder &UtilsPKCSAdapter::Builder::setKeyAndCert(const Jchar *key, const Jchar *cert)
 {
-    this->mKeyPath.append(keyPath);
-    this->mCertPath.append(certPath);
+    this->mKey.append(key);
+    this->mCert.append(cert);
     return (*this);
 }
 
@@ -79,7 +79,7 @@ UtilsPKCSAdapter::UtilsPKCSAdapter(Builder *builder)
           , mType7{builder->mType7}
 {
     if (this->mType7 == nullptr)
-        this->mType7 = new UtilsPKCSType7OpenSSL(builder->mKeyPath.c_str(), builder->mCertPath.c_str());
+        this->mType7 = new UtilsPKCSType7OpenSSL(builder->mKey.c_str(), builder->mCert.c_str());
 }
 
 UtilsPKCSAdapter::~UtilsPKCSAdapter()

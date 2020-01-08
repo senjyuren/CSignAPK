@@ -49,7 +49,7 @@ APKLocalFile::APKLocalFile()
 {
 }
 
-void APKLocalFile::start(const Jchar *path)
+void APKLocalFile::start(const Jchar *)
 {
 }
 

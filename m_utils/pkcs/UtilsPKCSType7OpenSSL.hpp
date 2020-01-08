@@ -3,15 +3,6 @@
 #ifndef CSIGNAPK_UTILSPKCSTYPE7OPENSSL_HPP
 #define CSIGNAPK_UTILSPKCSTYPE7OPENSSL_HPP
 
-# ifdef _WIN32
-#  undef X509_NAME
-#  undef X509_EXTENSIONS
-#  undef PKCS7_ISSUER_AND_SERIAL
-#  undef PKCS7_SIGNER_INFO
-#  undef OCSP_REQUEST
-#  undef OCSP_RESPONSE
-# endif
-
 #include <openssl/pem.h>
 #include <openssl/pkcs7.h>
 
@@ -25,24 +16,19 @@ class UtilsPKCSType7OpenSSL
         : public UtilsPKCSType7I
 {
 private:
-    constexpr static Jint READ_CACHE_MAX = 512;
-
-    std::vector<Jbyte> mKeyPEM;
-    std::vector<Jbyte> mCertPEM;
+    std::string        mKeyPEM;
+    std::string        mCertPEM;
     std::vector<Jbyte> mSignContent;
 
-    BIO                 *mKeyBIO;
-    BIO                 *mCertBIO;
-    BIO                 *mPKCS7BIO;
-    X509                *mCertCon;
-    PKCS8_PRIV_KEY_INFO *mPkeyInfo;
-    EVP_PKEY            *mPkeyCon;
-    PKCS7               *mPKCS7;
-
-    Jchar mReadCache[READ_CACHE_MAX];
+    BIO      *mKeyBIO;
+    BIO      *mCertBIO;
+    BIO      *mPKCS7BIO;
+    X509     *mCertCon;
+    EVP_PKEY *mPkeyCon;
+    PKCS7    *mPKCS7;
 
 public:
-    UtilsPKCSType7OpenSSL(const Jchar *keyPath, const Jchar *certPath);
+    UtilsPKCSType7OpenSSL(const Jchar *key, const Jchar *cert);
 
     Jbool pkcs7Ready() override;
 
@@ -51,7 +37,7 @@ public:
     Jbool pkcs7Done(std::vector<Jbyte> &ret) override;
 };
 
-UtilsPKCSType7OpenSSL::UtilsPKCSType7OpenSSL(const Jchar *keyPath, const Jchar *certPath)
+UtilsPKCSType7OpenSSL::UtilsPKCSType7OpenSSL(const Jchar *key, const Jchar *cert)
         : mKeyPEM{}
           , mCertPEM{}
           , mSignContent{}
@@ -59,40 +45,11 @@ UtilsPKCSType7OpenSSL::UtilsPKCSType7OpenSSL(const Jchar *keyPath, const Jchar *
           , mCertBIO{}
           , mPKCS7BIO{}
           , mCertCon{}
-          , mPkeyInfo{}
           , mPkeyCon{}
           , mPKCS7{}
-          , mReadCache{}
 {
-    Jint i = 0;
-
-    std::ifstream file;
-    std::string   keyP(keyPath);
-    std::string   certP(certPath);
-
-    if ((!std::filesystem::exists(keyP)) || (!std::filesystem::exists(certP)))
-        return;
-
-    file.open(keyP.c_str(), (std::ios::in | std::ios::binary));
-
-    do
-    {
-        file.read(this->mReadCache, sizeof(this->mReadCache));
-        for (i = 0; i < file.gcount(); ++i)
-            this->mKeyPEM.push_back(this->mReadCache[i]);
-    } while (file.gcount() == sizeof(this->mReadCache));
-
-    file.close();
-    file.open(certP);
-
-    do
-    {
-        file.read(this->mReadCache, sizeof(this->mReadCache));
-        for (i = 0; i < file.gcount(); ++i)
-            this->mCertPEM.push_back(this->mReadCache[i]);
-    } while (file.gcount() == sizeof(this->mReadCache));
-
-    file.close();
+    this->mKeyPEM.append(key);
+    this->mCertPEM.append(cert);
 }
 
 Jbool UtilsPKCSType7OpenSSL::pkcs7Ready()
@@ -100,15 +57,14 @@ Jbool UtilsPKCSType7OpenSSL::pkcs7Ready()
     this->mKeyBIO  = BIO_new_mem_buf(this->mKeyPEM.data(), this->mKeyPEM.size());
     this->mCertBIO = BIO_new_mem_buf(this->mCertPEM.data(), this->mCertPEM.size());
 
-    this->mCertCon  = PEM_read_bio_X509(this->mCertBIO, nullptr, nullptr, nullptr);
-    this->mPkeyInfo = d2i_PKCS8_PRIV_KEY_INFO_bio(this->mKeyBIO, nullptr);
-    this->mPkeyCon  = EVP_PKCS82PKEY(this->mPkeyInfo);
+    this->mCertCon = PEM_read_bio_X509(this->mCertBIO, nullptr, nullptr, nullptr);
+    PEM_read_bio_PrivateKey(this->mKeyBIO, &this->mPkeyCon, nullptr, nullptr);
 
     this->mPKCS7 = PKCS7_new();
     PKCS7_set_type(this->mPKCS7, NID_pkcs7_signed);
     PKCS7_add_certificate(this->mPKCS7, this->mCertCon);
     PKCS7_content_new(this->mPKCS7, NID_pkcs7_data);
-    PKCS7_set_detached(this->mPKCS7, 1);
+    PKCS7_ctrl(this->mPKCS7,PKCS7_OP_SET_DETACHED_SIGNATURE,1, nullptr);
     PKCS7_add_signature(this->mPKCS7, this->mCertCon, this->mPkeyCon, EVP_sha256());
 
     this->mPKCS7BIO = PKCS7_dataInit(this->mPKCS7, nullptr);
@@ -136,8 +92,6 @@ Jbool UtilsPKCSType7OpenSSL::pkcs7Done(std::vector<Jbyte> &ret)
         free(retPtr);
     if (this->mPKCS7BIO != nullptr)
         BIO_free(this->mPKCS7BIO);
-    if (this->mPkeyInfo != nullptr)
-        PKCS8_PRIV_KEY_INFO_free(this->mPkeyInfo);
     if (this->mPKCS7 != nullptr)
         PKCS7_free(this->mPKCS7);
     if (this->mPkeyCon != nullptr)

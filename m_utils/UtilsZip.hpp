@@ -169,7 +169,11 @@ UtilsZip::UtilsZip(Builder *builder)
     this->mTempPath.append(DIR_OF_TEMP);
 
     if (!builder->mNotCallUnPack)
+    {
+        if (std::filesystem::exists(this->mTempPath))
+            std::filesystem::remove_all(this->mTempPath);
         builder->mUnPack->streamIntercept(this->mInPath.c_str(), this->mTempPath.c_str());
+    }
 }
 
 UtilsZip::~UtilsZip()
@@ -180,8 +184,6 @@ UtilsZip::~UtilsZip()
 void UtilsZip::pack()
 {
     this->mPack->pack(this->mTempPath.c_str(), this->mOuPath.c_str());
-    if (std::filesystem::exists(this->mTempPath))
-        std::filesystem::remove_all(this->mTempPath);
 }
 
 const std::vector<std::string> &UtilsZip::getAllZipPath()

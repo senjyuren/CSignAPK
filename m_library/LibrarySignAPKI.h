@@ -14,27 +14,27 @@ class LibrarySignAPKI
 public:
     virtual ~LibrarySignAPKI();
 
-    virtual LibrarySignAPKI &apkCity(const Jchar *v) = 0;
+    virtual LibrarySignAPKI &apkCity(const char *v) = 0;
 
-    virtual LibrarySignAPKI &apkCommon(const Jchar *v) = 0;
+    virtual LibrarySignAPKI &apkCommon(const char *v) = 0;
 
-    virtual LibrarySignAPKI &apkEmail(const Jchar *v) = 0;
+    virtual LibrarySignAPKI &apkEmail(const char *v) = 0;
 
-    virtual LibrarySignAPKI &apkCountry(const Jchar *v) = 0;
+    virtual LibrarySignAPKI &apkCountry(const char *v) = 0;
 
-    virtual LibrarySignAPKI &apkOrganization(const Jchar *v) = 0;
+    virtual LibrarySignAPKI &apkOrganization(const char *v) = 0;
 
-    virtual LibrarySignAPKI &apkOrganizationUnit(const Jchar *v) = 0;
+    virtual LibrarySignAPKI &apkOrganizationUnit(const char *v) = 0;
 
-    virtual LibrarySignAPKI &apkProvince(const Jchar *v) = 0;
+    virtual LibrarySignAPKI &apkProvince(const char *v) = 0;
 
-    virtual LibrarySignAPKI &apkPrivateKey(const Jchar *v) = 0;
+    virtual LibrarySignAPKI &apkPrivateKey(const char *v) = 0;
 
-    virtual LibrarySignAPKI &apkPublicKey(const Jchar *v) = 0;
+    virtual LibrarySignAPKI &apkPublicKey(const char *v) = 0;
 
-    virtual LibrarySignAPKI &apkInputAPKPath(const Jchar *v) = 0;
+    virtual LibrarySignAPKI &apkInputAPKPath(const char *v) = 0;
 
-    virtual LibrarySignAPKI &apkOutputPath(const Jchar *v) = 0;
+    virtual LibrarySignAPKI &apkOutputPath(const char *v) = 0;
 
     virtual void apkSign() = 0;
 };

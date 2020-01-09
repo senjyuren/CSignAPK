@@ -9,7 +9,7 @@ namespace m
 inline namespace apk
 {
 
-#define OBJECTS_CLS_EXPORT __attribute__ ((visibility ("default")))
+#define OBJECTS_CLS_EXPORT __declspec(dllexport)
 
 }
 

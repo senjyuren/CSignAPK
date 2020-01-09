@@ -13,14 +13,15 @@
 
 #include <jemalloc/jemalloc.h>
 
-using Jbyte = unsigned char;
-using Juint = unsigned int;
+using Jbyte  = unsigned char;
+using Juint  = unsigned int;
 using Julong = unsigned long;
-using Jchar =  char;
-using Jint = int;
-using Jlong = long;
-using Jbool = bool;
-using Jsize = size_t;
+using Jchar  = char;
+using Jint   = int;
+using Jlong  = long;
+using Jllong = long long;
+using Jbool  = bool;
+using Jsize  = size_t;
 
 void *operator new(Jsize vLen)
 {
@@ -58,5 +59,6 @@ void operator delete[](void *v) noexcept
 #include "m_utils/UtilsPKCS.hpp"
 
 #include "m_apk/APKObjectsQueue.hpp"
+#include "m_library/LibrarySignAPK.hpp"
 
 #endif //CSIGNAPK_KERNEL_HPP

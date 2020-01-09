@@ -1,7 +1,7 @@
 #pragma once
 
-#ifndef CSIGNAPK_UTILSX509SIGNWITHOPENSSL_HPP
-#define CSIGNAPK_UTILSX509SIGNWITHOPENSSL_HPP
+#ifndef CSIGNAPK_UTILSPKCS7SIGNWITHOPENSSL_HPP
+#define CSIGNAPK_UTILSPKCS7SIGNWITHOPENSSL_HPP
 
 #include <openssl/rsa.h>
 #include <openssl/pem.h>
@@ -12,29 +12,29 @@ namespace m
 inline namespace apk
 {
 
-class UtilsX509SignWithOpenSSL
-        : public UtilsX509SignI
+class UtilsPKCS7SignWithOpenSSL
+        : public UtilsPKCS7SignI
 {
 private:
     constexpr static Jint EN_BLOCK_SIZE = 4096;
 
     std::vector<Jbyte>  mDataArea;
     std::string         mPriKey;
-    UtilsX509RSAPadding mPadding;
+    UtilsPKCSRSAPadding mPadding;
 
     Jbyte mBlock[EN_BLOCK_SIZE];
 
 public:
-    explicit UtilsX509SignWithOpenSSL(const Jchar *prikey);
+    explicit UtilsPKCS7SignWithOpenSSL(const Jchar *prikey);
 
-    Jbool x509SignInit(UtilsX509RSAPadding v) override;
+    Jbool pkcs7SignInit(UtilsPKCSRSAPadding v) override;
 
-    Jbool x509SignUpdate(const Jbyte *v, Jint vLen) override;
+    Jbool pkcs7SignUpdate(const Jbyte *v, Jint vLen) override;
 
-    Jbool x509SignFinal(std::vector<Jbyte> &ret) override;
+    Jbool pkcs7SignFinal(std::vector<Jbyte> &ret) override;
 };
 
-UtilsX509SignWithOpenSSL::UtilsX509SignWithOpenSSL(const Jchar *prikey)
+UtilsPKCS7SignWithOpenSSL::UtilsPKCS7SignWithOpenSSL(const Jchar *prikey)
         : mDataArea{}
           , mPriKey{}
           , mPadding{}
@@ -43,14 +43,14 @@ UtilsX509SignWithOpenSSL::UtilsX509SignWithOpenSSL(const Jchar *prikey)
     this->mPriKey.append(prikey);
 }
 
-Jbool UtilsX509SignWithOpenSSL::x509SignInit(UtilsX509RSAPadding v)
+Jbool UtilsPKCS7SignWithOpenSSL::pkcs7SignInit(UtilsPKCSRSAPadding v)
 {
     this->mDataArea.clear();
     this->mPadding = v;
     return true;
 }
 
-Jbool UtilsX509SignWithOpenSSL::x509SignUpdate(const Jbyte *v, Jint vLen)
+Jbool UtilsPKCS7SignWithOpenSSL::pkcs7SignUpdate(const Jbyte *v, Jint vLen)
 {
     Jint i = 0;
 
@@ -59,7 +59,7 @@ Jbool UtilsX509SignWithOpenSSL::x509SignUpdate(const Jbyte *v, Jint vLen)
     return true;
 }
 
-Jbool UtilsX509SignWithOpenSSL::x509SignFinal(std::vector<Jbyte> &ret)
+Jbool UtilsPKCS7SignWithOpenSSL::pkcs7SignFinal(std::vector<Jbyte> &ret)
 {
     Jint  i      = 0;
     Jint  retLen = 0;
@@ -82,7 +82,7 @@ Jbool UtilsX509SignWithOpenSSL::x509SignFinal(std::vector<Jbyte> &ret)
         if (prikeyRSA == nullptr)
             break;
 
-        if (this->mPadding == UtilsX509RSAPadding::NONE)
+        if (this->mPadding == UtilsPKCSRSAPadding::NONE)
             retLen = RSA_private_encrypt(
                     this->mDataArea.size(),
                     this->mDataArea.data(),
@@ -90,7 +90,7 @@ Jbool UtilsX509SignWithOpenSSL::x509SignFinal(std::vector<Jbyte> &ret)
                     prikeyRSA,
                     RSA_NO_PADDING
             );
-        else if (this->mPadding == UtilsX509RSAPadding::PKCS1)
+        else if (this->mPadding == UtilsPKCSRSAPadding::PKCS1)
             retLen = RSA_private_encrypt(
                     this->mDataArea.size(),
                     this->mDataArea.data(),
@@ -98,7 +98,7 @@ Jbool UtilsX509SignWithOpenSSL::x509SignFinal(std::vector<Jbyte> &ret)
                     prikeyRSA,
                     RSA_PKCS1_PADDING
             );
-        else if (this->mPadding == UtilsX509RSAPadding::PKCS1_OAEP)
+        else if (this->mPadding == UtilsPKCSRSAPadding::PKCS1_OAEP)
             retLen = RSA_private_encrypt(
                     this->mDataArea.size(),
                     this->mDataArea.data(),
@@ -106,7 +106,7 @@ Jbool UtilsX509SignWithOpenSSL::x509SignFinal(std::vector<Jbyte> &ret)
                     prikeyRSA,
                     RSA_PKCS1_OAEP_PADDING
             );
-        else if (this->mPadding == UtilsX509RSAPadding::X931)
+        else if (this->mPadding == UtilsPKCSRSAPadding::X931)
             retLen = RSA_private_encrypt(
                     this->mDataArea.size(),
                     this->mDataArea.data(),
@@ -143,4 +143,4 @@ Jbool UtilsX509SignWithOpenSSL::x509SignFinal(std::vector<Jbyte> &ret)
 
 }
 
-#endif //CSIGNAPK_UTILSX509SIGNWITHOPENSSL_HPP
+#endif //CSIGNAPK_UTILSPKCS7SIGNWITHOPENSSL_HPP

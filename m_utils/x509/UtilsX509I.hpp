@@ -22,7 +22,11 @@ public:
 
     virtual UtilsX509I &x509SetRequest(const Jchar *v) = 0;
 
-    virtual UtilsX509I &x509SetExpDate(Jlong v) = 0;
+    virtual UtilsX509I &x509SetSerialNumber(const Jchar *v) = 0;
+
+    virtual UtilsX509I &x509SetStaDate(Jllong v) = 0;
+
+    virtual UtilsX509I &x509SetExpDate(Jllong v) = 0;
 
     virtual UtilsX509I &x509SetSignObject(UtilsX509SignI *v) = 0;
 

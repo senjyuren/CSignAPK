@@ -24,11 +24,11 @@ public:
 
     Jbool sha256(const Jbyte *v, Jint vLen, std::vector<Jbyte> &ret) override;
 
-    Jbool sha256Ready() override;
+    Jbool sha256Init() override;
 
-    Jbool sha256Process(const Jbyte *v, Jint vLen) override;
+    Jbool sha256Update(const Jbyte *v, Jint vLen) override;
 
-    Jbool sha256Done(std::vector<Jbyte> &ret) override;
+    Jbool sha256Final(std::vector<Jbyte> &ret) override;
 };
 
 UtilsSHA256WithOpenSSL::UtilsSHA256WithOpenSSL()
@@ -51,19 +51,19 @@ Jbool UtilsSHA256WithOpenSSL::sha256(const Jbyte *v, Jint vLen, std::vector<Jbyt
     return true;
 }
 
-Jbool UtilsSHA256WithOpenSSL::sha256Ready()
+Jbool UtilsSHA256WithOpenSSL::sha256Init()
 {
     SHA256_Init(&this->mCtx);
     return true;
 }
 
-Jbool UtilsSHA256WithOpenSSL::sha256Process(const Jbyte *v, Jint vLen)
+Jbool UtilsSHA256WithOpenSSL::sha256Update(const Jbyte *v, Jint vLen)
 {
     SHA256_Update(&this->mCtx, v, vLen);
     return true;
 }
 
-Jbool UtilsSHA256WithOpenSSL::sha256Done(std::vector<Jbyte> &ret)
+Jbool UtilsSHA256WithOpenSSL::sha256Final(std::vector<Jbyte> &ret)
 {
     Jint i = 0;
 

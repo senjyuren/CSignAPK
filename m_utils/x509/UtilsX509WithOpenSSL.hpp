@@ -28,8 +28,13 @@ class UtilsX509WithOpenSSL
         : public UtilsX509I
 {
 private:
-    constexpr static Jint BN_SIZE    = 159;
-    constexpr static Jint READ_CACHE = 128;
+    constexpr static Jchar NID_HASH[] = "hash";
+    constexpr static Jchar NID_AUTH[] = "keyid";
+    constexpr static Jchar NID_CA[]   = "CA:TRUE";
+
+    constexpr static Jint   BN_SIZE          = 159;
+    constexpr static Jint   READ_CACHE       = 128;
+    constexpr static Jllong ONE_YEAR_SECONDS = 365 * 24 * 60 * 60;
 
     X509       *mX509Ctx;
     EVP_PKEY   *mEvpPKey;
@@ -48,7 +53,11 @@ public:
 
     UtilsX509I &x509SetRequest(const Jchar *v) override;
 
-    UtilsX509I &x509SetExpDate(Jlong v) override;
+    UtilsX509I &x509SetSerialNumber(const Jchar *v) override;
+
+    UtilsX509I &x509SetStaDate(Jllong v) override;
+
+    UtilsX509I &x509SetExpDate(Jllong v) override;
 
     UtilsX509I &x509SetSignObject(UtilsX509SignI *v) override;
 
@@ -123,19 +132,19 @@ UtilsX509I &UtilsX509WithOpenSSL::x509SetCA(const Jchar *v)
 
         x509V3Ctx.db = nullptr;
         X509V3_set_ctx(&x509V3Ctx, this->mX509Ctx, this->mX509Ctx, nullptr, nullptr, 0);
-        x509Extension = X509V3_EXT_conf_nid(nullptr, &x509V3Ctx, NID_subject_key_identifier, "hash");
+        x509Extension = X509V3_EXT_conf_nid(nullptr, &x509V3Ctx, NID_subject_key_identifier, NID_HASH);
         X509_add_ext(this->mX509Ctx, x509Extension, -1);
         X509_EXTENSION_free(x509Extension);
 
         x509V3Ctx.db = nullptr;
         X509V3_set_ctx(&x509V3Ctx, this->mX509Ctx, this->mX509Ctx, nullptr, nullptr, 0);
-        x509Extension = X509V3_EXT_conf_nid(nullptr, &x509V3Ctx, NID_authority_key_identifier, "keyid");
+        x509Extension = X509V3_EXT_conf_nid(nullptr, &x509V3Ctx, NID_authority_key_identifier, NID_AUTH);
         X509_add_ext(this->mX509Ctx, x509Extension, -1);
         X509_EXTENSION_free(x509Extension);
 
         x509V3Ctx.db = nullptr;
         X509V3_set_ctx(&x509V3Ctx, this->mX509Ctx, this->mX509Ctx, nullptr, nullptr, 0);
-        x509Extension = X509V3_EXT_conf_nid(nullptr, &x509V3Ctx, NID_basic_constraints, "CA:TRUE");
+        x509Extension = X509V3_EXT_conf_nid(nullptr, &x509V3Ctx, NID_basic_constraints, NID_CA);
         X509_add_ext(this->mX509Ctx, x509Extension, -1);
         X509_EXTENSION_free(x509Extension);
     }
@@ -214,13 +223,74 @@ UtilsX509I &UtilsX509WithOpenSSL::x509SetRequest(const Jchar *v)
     return (*this);
 }
 
-UtilsX509I &UtilsX509WithOpenSSL::x509SetExpDate(Jlong v)
+UtilsX509I &UtilsX509WithOpenSSL::x509SetSerialNumber(const Jchar *v)
 {
-    time_t nowTime;
+    Jint vLen = 0;
 
-    nowTime = time(nullptr);
-    X509_gmtime_adj(X509_getm_notBefore(this->mX509Ctx), 0);
-    X509_gmtime_adj(X509_getm_notAfter(this->mX509Ctx), (static_cast<Jlong>(nowTime) + v));
+    BIGNUM       *bignum     = nullptr;
+    ASN1_INTEGER *integer    = nullptr;
+    BIO          *integerBIO = nullptr;
+
+    vLen = strlen(v);
+    if (vLen != 0)
+    {
+        do
+        {
+            integerBIO = BIO_new_mem_buf(v, vLen);
+            if (integerBIO == nullptr)
+                break;
+
+            integer = ASN1_INTEGER_new();
+            if (integer == nullptr)
+                break;
+
+            a2i_ASN1_INTEGER(integerBIO, integer, this->mReadCache, sizeof(this->mReadCache));
+            X509_set_serialNumber(this->mX509Ctx, integer);
+        } while (false);
+
+        if (integer != nullptr)
+            ASN1_INTEGER_free(integer);
+        if (integerBIO != nullptr)
+            BIO_free(integerBIO);
+    } else
+    {
+        do
+        {
+            bignum = BN_new();
+            if (bignum == nullptr)
+                break;
+
+            BN_rand(bignum, BN_SIZE, BN_RAND_TOP_ANY, BN_RAND_BOTTOM_ANY);
+            BN_add_word(bignum, 1);
+            BN_to_ASN1_INTEGER(bignum, X509_get_serialNumber(this->mX509Ctx));
+        } while (false);
+
+        if (bignum != nullptr)
+            BN_free(bignum);
+    }
+    return (*this);
+}
+
+UtilsX509I &UtilsX509WithOpenSSL::x509SetStaDate(Jllong v)
+{
+    time_t t = v;
+    if (t == 0)
+        time(&t);
+
+    X509_time_adj(X509_getm_notBefore(this->mX509Ctx), 0, &t);
+    return (*this);
+}
+
+UtilsX509I &UtilsX509WithOpenSSL::x509SetExpDate(Jllong v)
+{
+    time_t t = v;
+    if (t == 0)
+    {
+        time(&t);
+        t += ONE_YEAR_SECONDS;
+    }
+
+    X509_time_adj(X509_getm_notAfter(this->mX509Ctx), 0, &t);
     return (*this);
 }
 
@@ -235,20 +305,11 @@ Jbool UtilsX509WithOpenSSL::x509End(std::string &ret)
     Jint  readLine = 0;
     Jbool state    = false;
 
-    BIO    *certBIO = nullptr;
-    BIGNUM *bignum  = nullptr;
+    BIO *certBIO = nullptr;
 
     do
     {
         ret.clear();
-        bignum = BN_new();
-        if (bignum == nullptr)
-            break;
-
-        BN_rand(bignum, BN_SIZE, BN_RAND_TOP_ANY, BN_RAND_BOTTOM_ANY);
-        BN_add_word(bignum, 1);
-        BN_to_ASN1_INTEGER(bignum, X509_get_serialNumber(this->mX509Ctx));
-
         X509_sign(this->mX509Ctx, this->mEvpPKey, EVP_sha1());
         certBIO = BIO_new(BIO_s_mem());
         if (certBIO == nullptr)
@@ -271,8 +332,6 @@ Jbool UtilsX509WithOpenSSL::x509End(std::string &ret)
         X509_free(this->mX509Ctx);
     if (this->mEvpPKey != nullptr)
         EVP_PKEY_free(this->mEvpPKey);
-    if (bignum != nullptr)
-        BN_free(bignum);
     if (certBIO != nullptr)
         BIO_free(certBIO);
     return state;

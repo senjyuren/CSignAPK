@@ -37,6 +37,7 @@ private:
     std::shared_ptr<APKSignedCert>    mSignedCert;
     std::shared_ptr<APKSignedCertRSA> mSignedCertRSA;
 
+    std::shared_ptr<UtilsX509Adapter> mX509Adapter;
     std::shared_ptr<UtilsPKCSAdapter> mPKCSAdapter;
     std::vector<Jbyte>                mPKCSValue;
 
@@ -52,8 +53,22 @@ public:
 
         std::string mAPKPath;
         std::string mAPKOutPath;
-        std::string mKey;
-        std::string mCert;
+        std::string mPriKey;
+        std::string mPubKey;
+        std::string mCAPriKey;
+
+        std::string mCity;
+        std::string mCommon;
+        std::string mEmail;
+        std::string mCountry;
+        std::string mOrganization;
+        std::string mOrganizationUnit;
+        std::string mProvince;
+        std::string mSerialNumber;
+
+        Jllong           mStaDate;
+        Jllong           mExpDate;
+        UtilsX509Version mVersion;
 
     public:
         friend APKObjects;
@@ -66,7 +81,31 @@ public:
 
         Builder &setPrivateKey(const Jchar *v);
 
-        Builder &setCert(const Jchar *v);
+        Builder &setPublicKey(const Jchar *v);
+
+        Builder &setCAPrivateKey(const Jchar *v);
+
+        Builder &setCity(const Jchar *v);
+
+        Builder &setCommon(const Jchar *v);
+
+        Builder &setEmail(const Jchar *v);
+
+        Builder &setCountry(const Jchar *v);
+
+        Builder &setOrganization(const Jchar *v);
+
+        Builder &setOrganizationUnit(const Jchar *v);
+
+        Builder &setProvince(const Jchar *v);
+
+        Builder &setSerialNumber(const Jchar *v);
+
+        Builder &setStaDate(Jllong v);
+
+        Builder &setExpDate(Jllong v);
+
+        Builder &setVersion(UtilsX509Version v);
 
         std::shared_ptr<APKObjects> build();
     };
@@ -100,8 +139,20 @@ APKObjects::Builder::Builder()
         : mLocalEnv{}
           , mAPKPath{}
           , mAPKOutPath{DEFAULT_OUT_DIR}
-          , mKey{}
-          , mCert{}
+          , mPriKey{}
+          , mPubKey{}
+          , mCAPriKey{}
+          , mCity{}
+          , mCommon{}
+          , mEmail{}
+          , mCountry{}
+          , mOrganization{}
+          , mOrganizationUnit{}
+          , mProvince{}
+          , mSerialNumber{}
+          , mStaDate{}
+          , mExpDate{}
+          , mVersion{}
 {
     this->mLocalEnv = (new APKLocalEnv::Builder())
             ->build();
@@ -122,13 +173,85 @@ APKObjects::Builder &APKObjects::Builder::setAPKOutPath(const Jchar *v)
 
 APKObjects::Builder &APKObjects::Builder::setPrivateKey(const Jchar *v)
 {
-    this->mKey.append(v);
+    this->mPriKey.append(v);
     return (*this);
 }
 
-APKObjects::Builder &APKObjects::Builder::setCert(const Jchar *v)
+APKObjects::Builder &APKObjects::Builder::setPublicKey(const Jchar *v)
 {
-    this->mCert.append(v);
+    this->mPubKey.append(v);
+    return (*this);
+}
+
+APKObjects::Builder &APKObjects::Builder::setCAPrivateKey(const Jchar *v)
+{
+    this->mCAPriKey.append(v);
+    return (*this);
+}
+
+APKObjects::Builder &APKObjects::Builder::setCity(const Jchar *v)
+{
+    this->mCity.append(v);
+    return (*this);
+}
+
+APKObjects::Builder &APKObjects::Builder::setCommon(const Jchar *v)
+{
+    this->mCommon.append(v);
+    return (*this);
+}
+
+APKObjects::Builder &APKObjects::Builder::setEmail(const Jchar *v)
+{
+    this->mEmail.append(v);
+    return (*this);
+}
+
+APKObjects::Builder &APKObjects::Builder::setCountry(const Jchar *v)
+{
+    this->mCountry.append(v);
+    return (*this);
+}
+
+APKObjects::Builder &APKObjects::Builder::setOrganization(const Jchar *v)
+{
+    this->mOrganization.append(v);
+    return (*this);
+}
+
+APKObjects::Builder &APKObjects::Builder::setOrganizationUnit(const Jchar *v)
+{
+    this->mOrganizationUnit.append(v);
+    return (*this);
+}
+
+APKObjects::Builder &APKObjects::Builder::setProvince(const Jchar *v)
+{
+    this->mProvince.append(v);
+    return (*this);
+}
+
+APKObjects::Builder &APKObjects::Builder::setSerialNumber(const Jchar *v)
+{
+    this->mSerialNumber.append(v);
+    return (*this);
+}
+
+APKObjects::Builder &APKObjects::Builder::setStaDate(Jllong v)
+{
+    this->mStaDate = v;
+    return (*this);
+}
+
+APKObjects::Builder &APKObjects::Builder::setExpDate(Jllong v)
+{
+    this->mExpDate = v;
+    return (*this);
+}
+
+APKObjects::Builder &APKObjects::Builder::setVersion(UtilsX509Version v)
+{
+    this->mVersion = v;
     return (*this);
 }
 
@@ -143,6 +266,7 @@ APKObjects::APKObjects(Builder *builder)
           , mSelectArray{}
           , mSignedCert{}
           , mSignedCertRSA{}
+          , mX509Adapter{}
           , mPKCSAdapter{}
           , mPKCSValue{}
           , mSHAAdapter{}
@@ -151,8 +275,25 @@ APKObjects::APKObjects(Builder *builder)
 {
     this->mFileSign.remove();
 
+    this->mX509Adapter = (new UtilsX509Adapter::Builder())
+            ->setCity(builder->mCity.c_str())
+            .setCommon(builder->mCommon.c_str())
+            .setEmail(builder->mEmail.c_str())
+            .setCountry(builder->mCountry.c_str())
+            .setOrganization(builder->mOrganization.c_str())
+            .setOrganizationUnit(builder->mOrganizationUnit.c_str())
+            .setProvince(builder->mProvince.c_str())
+            .setVersion(builder->mVersion)
+            .setSerialNumber(builder->mSerialNumber.c_str())
+            .setStaDate(builder->mStaDate)
+            .setExpDate(builder->mExpDate)
+            .setPublicKey(builder->mPubKey.c_str())
+            .setPrivateKey(builder->mPriKey.c_str())
+            .setCAPrivateKey(builder->mCAPriKey.c_str())
+            .build();
     this->mPKCSAdapter = (new UtilsPKCSAdapter::Builder())
-            ->setKeyAndCert(builder->mKey.c_str(), builder->mCert.c_str())
+            ->setKey(builder->mPriKey.c_str())
+            .setCert(this->mX509Adapter->getCert().c_str())
             .build();
     this->mSHAAdapter  = (new UtilsSHAAdapter::Builder())
             ->build();
@@ -212,8 +353,8 @@ APKObjects::~APKObjects()
 
 void APKObjects::unPackStart(const Jchar *, const Jchar *)
 {
-    this->mSHAAdapter->getSHA1().sha1Ready();
-    this->mSHAAdapter->getSHA256().sha256Ready();
+    this->mSHAAdapter->sha1Init();
+    this->mSHAAdapter->sha256Init();
 }
 
 void APKObjects::unPackEnd(const Jchar *name, const Jchar *)
@@ -227,10 +368,10 @@ void APKObjects::unPackEnd(const Jchar *name, const Jchar *)
     );
 
     sign.setName(name);
-    this->mSHAAdapter->getSHA1().sha1Done(this->mSHAValue);
+    this->mSHAAdapter->sha1Final(this->mSHAValue);
     sign.setSHA1(this->mSHAValue.data(), this->mSHAValue.size());
 
-    this->mSHAAdapter->getSHA256().sha256Done(this->mSHAValue);
+    this->mSHAAdapter->sha256Final(this->mSHAValue);
     sign.setSHA256(this->mSHAValue.data(), this->mSHAValue.size());
 
     if (this->mSelectArray.empty())
@@ -241,47 +382,47 @@ void APKObjects::unPackEnd(const Jchar *name, const Jchar *)
 
 void APKObjects::unPackStream(const Jchar *, const Jchar *, const Jbyte *v, Jint vLen)
 {
-    this->mSHAAdapter->getSHA1().sha1Process(v, vLen);
-    this->mSHAAdapter->getSHA256().sha256Process(v, vLen);
+    this->mSHAAdapter->sha1Update(v, vLen);
+    this->mSHAAdapter->sha256Update(v, vLen);
 }
 
 void APKObjects::manifestBlock(const Jchar *name, const Jchar *v, Jint vLen)
 {
-    this->mSHAAdapter->getSHA256().sha256(reinterpret_cast<Jbyte *>(const_cast<Jchar *>(v)), vLen, this->mSHAValue);
+    this->mSHAAdapter->sha256(reinterpret_cast<Jbyte *>(const_cast<Jchar *>(v)), vLen, this->mSHAValue);
     UtilsBase64::Encrypt(this->mSHAValue.data(), this->mSHAValue.size(), this->mSHABase64Value);
     this->mSignedCert->signContentStream(name, this->mSHABase64Value.c_str(), this->mSHABase64Value.length());
 }
 
 void APKObjects::manifestContentStart(const Jchar *)
 {
-    this->mSHAAdapter->getSHA256().sha256Ready();
+    this->mSHAAdapter->sha256Init();
 }
 
 void APKObjects::manifestContentUpdate(const Jchar *, const Jchar *v, Jint vLen)
 {
-    this->mSHAAdapter->getSHA256().sha256Process(reinterpret_cast<Jbyte *>(const_cast<Jchar *>(v)), vLen);
+    this->mSHAAdapter->sha256Update(reinterpret_cast<Jbyte *>(const_cast<Jchar *>(v)), vLen);
 }
 
 void APKObjects::manifestContentEnd(const Jchar *name)
 {
-    this->mSHAAdapter->getSHA256().sha256Done(this->mSHAValue);
+    this->mSHAAdapter->sha256Final(this->mSHAValue);
     UtilsBase64::Encrypt(this->mSHAValue.data(), this->mSHAValue.size(), this->mSHABase64Value);
     this->mSignedCert->signHeadStream(name, this->mSHABase64Value.c_str(), this->mSHABase64Value.length());
 }
 
 void APKObjects::certContentStart(const Jchar *)
 {
-    this->mPKCSAdapter->getType7().pkcs7Ready();
+    this->mPKCSAdapter->init();
 }
 
 void APKObjects::certContentUpdate(const Jchar *, const Jchar *v, Jint vLen)
 {
-    this->mPKCSAdapter->getType7().pkcs7Process(reinterpret_cast<Jbyte *>(const_cast<Jchar *>(v)), vLen);
+    this->mPKCSAdapter->update(reinterpret_cast<Jbyte *>(const_cast<Jchar *>(v)), vLen);
 }
 
 void APKObjects::certContentEnd(const Jchar *name)
 {
-    this->mPKCSAdapter->getType7().pkcs7Done(this->mPKCSValue);
+    this->mPKCSAdapter->final(this->mPKCSValue);
     this->mSignedCertRSA->signContentStream(
             name,
             reinterpret_cast<Jchar *>(this->mPKCSValue.data()),

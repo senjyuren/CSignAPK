@@ -14,11 +14,11 @@ class UtilsPKCSType7I
 public:
     virtual ~UtilsPKCSType7I();
 
-    virtual Jbool pkcs7Ready() = 0;
+    virtual Jbool pkcs7Init(UtilsPKCS7SignI *sign) = 0;
 
-    virtual Jbool pkcs7Process(const Jbyte *v, Jint vLen) = 0;
+    virtual Jbool pkcs7Update(const Jbyte *v, Jint vLen) = 0;
 
-    virtual Jbool pkcs7Done(std::vector<Jbyte> &ret) = 0;
+    virtual Jbool pkcs7Final(std::vector<Jbyte> &ret) = 0;
 };
 
 UtilsPKCSType7I::~UtilsPKCSType7I() = default;

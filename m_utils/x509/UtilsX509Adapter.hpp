@@ -47,8 +47,10 @@ public:
         std::string mOrganizationUnit;
         std::string mCommon;
         std::string mEmail;
+        std::string mSerialNumber;
 
-        Jlong            mExpDate;
+        Jllong           mStaDate;
+        Jllong           mExpDate;
         UtilsX509Version mVersion;
 
         std::string mPubKey;
@@ -80,7 +82,11 @@ public:
 
         Builder &setEmail(const Jchar *v);
 
-        Builder &setExpDate(Jlong v);
+        Builder &setSerialNumber(const Jchar *v);
+
+        Builder &setStaDate(Jllong v);
+
+        Builder &setExpDate(Jllong v);
 
         Builder &setVersion(UtilsX509Version v);
 
@@ -120,6 +126,8 @@ UtilsX509Adapter::Builder::Builder()
           , mOrganizationUnit{}
           , mCommon{}
           , mEmail{}
+          , mSerialNumber{}
+          , mStaDate{}
           , mExpDate{}
           , mVersion{}
           , mPubKey{}
@@ -176,7 +184,19 @@ UtilsX509Adapter::Builder &UtilsX509Adapter::Builder::setEmail(const Jchar *v)
     return (*this);
 }
 
-UtilsX509Adapter::Builder &UtilsX509Adapter::Builder::setExpDate(Jlong v)
+UtilsX509Adapter::Builder &UtilsX509Adapter::Builder::setSerialNumber(const Jchar *v)
+{
+    this->mSerialNumber.append(v);
+    return (*this);
+}
+
+UtilsX509Adapter::Builder &UtilsX509Adapter::Builder::setStaDate(Jllong v)
+{
+    this->mStaDate = v;
+    return (*this);
+}
+
+UtilsX509Adapter::Builder &UtilsX509Adapter::Builder::setExpDate(Jllong v)
 {
     this->mExpDate = v;
     return (*this);
@@ -282,6 +302,8 @@ UtilsX509Adapter::UtilsX509Adapter(Builder *builder)
     this->mX509Ctx->x509SetVersion(builder->mVersion)
             .x509SetRequest(this->mX509ReqPEM.c_str())
             .x509SetCA(builder->mCA.c_str())
+            .x509SetSerialNumber(builder->mSerialNumber.c_str())
+            .x509SetStaDate(builder->mStaDate)
             .x509SetExpDate(builder->mExpDate)
             .x509SetSignObject(this->mX509CtxSign);
 

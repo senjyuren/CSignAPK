@@ -16,6 +16,8 @@ inline namespace apk
 {
 
 class UtilsSHAAdapter
+        : public UtilsSHA1I
+          , public UtilsSHA256I
 {
 public:
     class Builder;
@@ -47,11 +49,23 @@ public:
 
     explicit UtilsSHAAdapter(Builder *builder);
 
-    ~UtilsSHAAdapter();
+    ~UtilsSHAAdapter() override;
 
-    UtilsSHA1I &getSHA1();
+    Jbool sha1(const Jbyte *v, Jint vLen, std::vector<Jbyte> &ret) override;
 
-    UtilsSHA256I &getSHA256();
+    Jbool sha1Init() override;
+
+    Jbool sha1Update(const Jbyte *v, Jint vLen) override;
+
+    Jbool sha1Final(std::vector<Jbyte> &ret) override;
+
+    Jbool sha256(const Jbyte *v, Jint vLen, std::vector<Jbyte> &ret) override;
+
+    Jbool sha256Init() override;
+
+    Jbool sha256Update(const Jbyte *v, Jint vLen) override;
+
+    Jbool sha256Final(std::vector<Jbyte> &ret) override;
 };
 
 UtilsSHAAdapter::Builder::Builder()
@@ -93,14 +107,44 @@ UtilsSHAAdapter::~UtilsSHAAdapter()
     delete (this->mBuilder);
 }
 
-UtilsSHA1I &UtilsSHAAdapter::getSHA1()
+Jbool UtilsSHAAdapter::sha1(const Jbyte *v, Jint vLen, std::vector<Jbyte> &ret)
 {
-    return (*this->mSHA1);
+    return this->mSHA1->sha1(v, vLen, ret);
 }
 
-UtilsSHA256I &UtilsSHAAdapter::getSHA256()
+Jbool UtilsSHAAdapter::sha1Init()
 {
-    return (*this->mSHA256);
+    return this->mSHA1->sha1Init();
+}
+
+Jbool UtilsSHAAdapter::sha1Update(const Jbyte *v, Jint vLen)
+{
+    return this->mSHA1->sha1Update(v, vLen);
+}
+
+Jbool UtilsSHAAdapter::sha1Final(std::vector<Jbyte> &ret)
+{
+    return this->mSHA1->sha1Final(ret);
+}
+
+Jbool UtilsSHAAdapter::sha256(const Jbyte *v, Jint vLen, std::vector<Jbyte> &ret)
+{
+    return this->mSHA256->sha256(v, vLen, ret);
+}
+
+Jbool UtilsSHAAdapter::sha256Init()
+{
+    return this->mSHA256->sha256Init();
+}
+
+Jbool UtilsSHAAdapter::sha256Update(const Jbyte *v, Jint vLen)
+{
+    return this->mSHA256->sha256Update(v, vLen);
+}
+
+Jbool UtilsSHAAdapter::sha256Final(std::vector<Jbyte> &ret)
+{
+    return this->mSHA256->sha256Final(ret);
 }
 
 }

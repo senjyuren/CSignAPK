@@ -23,7 +23,6 @@ private:
     constexpr static Jint LIMIT_NAME_SIZE    = 64;
     constexpr static Jint LIMIT_NAME_EX_SIZE = 64;
 
-    constexpr static Jchar DEFAULT_DIR[]  = "/META-INF";
     constexpr static Jchar DEFAULT_NAME[] = "/MANIFEST.MF";
 
     constexpr static Jchar DEFAULT_TEMPLATE_HEAD[]           =
@@ -41,10 +40,6 @@ private:
     Builder                              *mBuilder;
     std::list<APKSignedManifestBlockI *> &mBlocks;
     std::string                          &mOutPath;
-
-    std::string mRootDir;
-    std::string mPathFile;
-    std::string mZipPathFile;
 
     std::fstream mOutFile;
     Jchar        mWirteCache[WRITE_SIZE];
@@ -126,25 +121,14 @@ APKSignedManifest::APKSignedManifest(APKSignedManifest::Builder *builder)
         : mBuilder{builder}
           , mBlocks{builder->mBlocks}
           , mOutPath{builder->mOutPath}
-          , mRootDir{}
-          , mPathFile{}
-          , mZipPathFile{}
           , mOutFile{}
           , mWirteCache{}
           , mLimitName{}
           , mLimitNameEx{}
 {
-    this->mRootDir.append(this->mOutPath)
-            .append(DEFAULT_DIR);
-
-    if (!std::filesystem::exists(this->mRootDir))
-        std::filesystem::create_directory(this->mRootDir);
-
-    this->mPathFile = this->mRootDir;
-    this->mPathFile.append(DEFAULT_NAME);
-
+    this->mOutPath.append(DEFAULT_NAME);
     this->mOutFile.open(
-            this->mPathFile.c_str(),
+            this->mOutPath.c_str(),
             (static_cast<Juint>(std::ios::in)
              | static_cast<Juint>(std::ios::out)
              | static_cast<Juint>(std::ios::trunc)
@@ -157,7 +141,6 @@ APKSignedManifest::APKSignedManifest(APKSignedManifest::Builder *builder)
 APKSignedManifest::~APKSignedManifest()
 {
     this->mOutFile.close();
-    std::filesystem::remove(this->mPathFile);
     delete (this->mBuilder);
 }
 
@@ -207,15 +190,15 @@ void APKSignedManifest::signStreamEnd()
     this->mOutFile.flush();
     this->mOutFile.clear();
     this->mOutFile.seekg(std::ios::beg);
-    this->notifyContentStart(this->mPathFile.c_str());
+    this->notifyContentStart(this->mOutPath.c_str());
 
     do
     {
         this->mOutFile.read(this->mWirteCache, sizeof(this->mWirteCache));
-        this->notifyContentUpdate(this->mPathFile.c_str(), this->mWirteCache, this->mOutFile.gcount());
+        this->notifyContentUpdate(this->mOutPath.c_str(), this->mWirteCache, this->mOutFile.gcount());
     } while (this->mOutFile.gcount() == sizeof(this->mWirteCache));
 
-    this->notifyContentEnd(this->mPathFile.c_str());
+    this->notifyContentEnd(this->mOutPath.c_str());
 }
 
 void APKSignedManifest::notifyBlock(const Jchar *name, const Jchar *v, Jint vLen)
@@ -244,8 +227,7 @@ void APKSignedManifest::notifyContentEnd(const Jchar *name)
 
 const std::string &APKSignedManifest::getPath()
 {
-    auto &&point = this->mPathFile.find(DEFAULT_DIR) + 1;
-    return (this->mZipPathFile = this->mPathFile.substr(point));
+    return this->mOutPath;
 }
 
 }

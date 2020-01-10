@@ -23,16 +23,16 @@ public:
     class Builder;
 
 private:
-    constexpr static Jchar DEFAULT_OUT_DIR[]  = ".";
-    constexpr static Jchar BACK_CERT_SF[]     = "CERT.SF";
-    constexpr static Jchar BACK_CERT_RSA[]    = "CERT.RSA";
-    constexpr static Jchar BACK_MANIFEST_MF[] = "MANIFEST.MF";
+    constexpr static Jchar DEFAULT_OUT_DIR[]      = ".";
+    constexpr static Jchar DEFAULT_META_INF_DIR[] = "META-INF";
+    constexpr static Jchar BACK_CERT_SF[]         = "CERT.SF";
+    constexpr static Jchar BACK_CERT_RSA[]        = "CERT.RSA";
+    constexpr static Jchar BACK_MANIFEST_MF[]     = "MANIFEST.MF";
 
     Builder *mBuilder;
 
     APKLocalActionI<APKLocalBeanFileSignedVar, APKLocalBeanFileSignedCon> &mFileSign;
-
-    std::vector<APKLocalBeanFileSignedCon> mSelectArray;
+    std::vector<APKLocalBeanFileSignedCon>                                mSelectArray;
 
     std::shared_ptr<APKSignedCert>    mSignedCert;
     std::shared_ptr<APKSignedCertRSA> mSignedCertRSA;
@@ -44,6 +44,8 @@ private:
     std::shared_ptr<UtilsSHAAdapter> mSHAAdapter;
     std::vector<Jbyte>               mSHAValue;
     std::string                      mSHABase64Value;
+
+    std::string mMetaInf;
 
 public:
     class Builder
@@ -69,6 +71,10 @@ public:
         Jllong           mStaDate;
         Jllong           mExpDate;
         UtilsX509Version mVersion;
+
+        UtilsPKCS7SignI *mPKCS7Sign;
+        UtilsX509SignI  *mX509ReqSign;
+        UtilsX509SignI  *mX509Sign;
 
     public:
         friend APKObjects;
@@ -106,6 +112,12 @@ public:
         Builder &setExpDate(Jllong v);
 
         Builder &setVersion(UtilsX509Version v);
+
+        Builder &setPKCS7Sign(UtilsPKCS7SignI *v);
+
+        Builder &setX509ReqSign(UtilsX509SignI *v);
+
+        Builder &setX509Sign(UtilsX509SignI *v);
 
         std::shared_ptr<APKObjects> build();
     };
@@ -153,6 +165,9 @@ APKObjects::Builder::Builder()
           , mStaDate{}
           , mExpDate{}
           , mVersion{}
+          , mPKCS7Sign{}
+          , mX509ReqSign{}
+          , mX509Sign{}
 {
     this->mLocalEnv = (new APKLocalEnv::Builder())
             ->build();
@@ -255,6 +270,24 @@ APKObjects::Builder &APKObjects::Builder::setVersion(UtilsX509Version v)
     return (*this);
 }
 
+APKObjects::Builder &APKObjects::Builder::setPKCS7Sign(UtilsPKCS7SignI *v)
+{
+    this->mPKCS7Sign = v;
+    return (*this);
+}
+
+APKObjects::Builder &APKObjects::Builder::setX509ReqSign(UtilsX509SignI *v)
+{
+    this->mX509ReqSign = v;
+    return (*this);
+}
+
+APKObjects::Builder &APKObjects::Builder::setX509Sign(UtilsX509SignI *v)
+{
+    this->mX509Sign = v;
+    return (*this);
+}
+
 std::shared_ptr<APKObjects> APKObjects::Builder::build()
 {
     return std::make_shared<APKObjects>(this);
@@ -272,9 +305,15 @@ APKObjects::APKObjects(Builder *builder)
           , mSHAAdapter{}
           , mSHAValue{}
           , mSHABase64Value{}
+          , mMetaInf{}
 {
-    this->mFileSign.remove();
+    this->mMetaInf.append(std::filesystem::temp_directory_path().string())
+            .append(DEFAULT_META_INF_DIR);
+    if (std::filesystem::exists(this->mMetaInf))
+        std::filesystem::remove_all(this->mMetaInf);
 
+    std::filesystem::create_directory(this->mMetaInf);
+    this->mFileSign.remove();
     this->mX509Adapter = (new UtilsX509Adapter::Builder())
             ->setCity(builder->mCity.c_str())
             .setCommon(builder->mCommon.c_str())
@@ -290,12 +329,17 @@ APKObjects::APKObjects(Builder *builder)
             .setPublicKey(builder->mPubKey.c_str())
             .setPrivateKey(builder->mPriKey.c_str())
             .setCAPrivateKey(builder->mCAPriKey.c_str())
+            .setX509ReqSign(builder->mX509ReqSign)
+            .setX509CtxSign(builder->mX509Sign)
             .build();
+
     this->mPKCSAdapter = (new UtilsPKCSAdapter::Builder())
             ->setKey(builder->mPriKey.c_str())
             .setCert(this->mX509Adapter->getCert().c_str())
+            .setPKCS7Sign(builder->mPKCS7Sign)
             .build();
-    this->mSHAAdapter  = (new UtilsSHAAdapter::Builder())
+
+    this->mSHAAdapter = (new UtilsSHAAdapter::Builder())
             ->build();
 
     auto &&autoUnZip = (new UtilsZip::Builder())
@@ -308,16 +352,16 @@ APKObjects::APKObjects(Builder *builder)
             .build();
 
     this->mSignedCertRSA = (new APKSignedCertRSA::Builder())
-            ->setOutPath(builder->mAPKOutPath.c_str())
+            ->setOutPath(this->mMetaInf.c_str())
             .build();
 
     this->mSignedCert = (new APKSignedCert::Builder())
-            ->setOutPath(builder->mAPKOutPath.c_str())
+            ->setOutPath(this->mMetaInf.c_str())
             .addIntercept(this)
             .build();
 
     auto &&manifest = (new APKSignedManifest::Builder())
-            ->setOutPath(builder->mAPKOutPath.c_str())
+            ->setOutPath(this->mMetaInf.c_str())
             .addIntercept(this)
             .build();
 

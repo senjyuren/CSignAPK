@@ -18,10 +18,14 @@ private:
     constexpr static Jllong DEFAULT_STA_DATE = 1512986512;
     constexpr static Jllong DEFAULT_EXP_DATE = 2376986512;
 
-    APKObjects::Builder *mBuilder;
+    APKObjects::Builder         *mBuilder;
+    std::shared_ptr<APKObjects> mObject;
+    UtilsPKCS7SignI             *mPKCS7Sign;
+    UtilsX509SignI              *mX509Ctx;
+    UtilsX509SignI              *mX509Req;
 
 public:
-    LibraryImplSignAPK();
+    explicit LibraryImplSignAPK(LibrarySignAPKExtSignI *v);
 
     LibrarySignAPKI &apkCity(const Jchar *v) override;
 
@@ -48,10 +52,20 @@ public:
     void apkSign() override;
 };
 
-LibraryImplSignAPK::LibraryImplSignAPK()
+LibraryImplSignAPK::LibraryImplSignAPK(LibrarySignAPKExtSignI *v)
         : mBuilder{}
+          , mObject{}
+          , mPKCS7Sign{new LibraryImplPKCS7Sign(v)}
+          , mX509Ctx{new LibraryImplX509Sign(v)}
+          , mX509Req{new LibraryImplX509ReqSign(v)}
 {
     this->mBuilder = new APKObjects::Builder();
+    if (v != nullptr)
+    {
+        this->mBuilder->setPKCS7Sign(this->mPKCS7Sign)
+                .setX509Sign(this->mX509Ctx)
+                .setX509ReqSign(this->mX509Req);
+    }
 }
 
 LibrarySignAPKI &LibraryImplSignAPK::apkCity(const Jchar *v)
@@ -123,7 +137,7 @@ LibrarySignAPKI &LibraryImplSignAPK::apkOutputPath(const Jchar *v)
 
 void LibraryImplSignAPK::apkSign()
 {
-    this->mBuilder->setVersion(UtilsX509Version::V3)
+    this->mObject = this->mBuilder->setVersion(UtilsX509Version::V3)
             .setSerialNumber(DEFAULT_SERIAL_NUMBER)
             .setStaDate(DEFAULT_STA_DATE)
             .setExpDate(DEFAULT_EXP_DATE)

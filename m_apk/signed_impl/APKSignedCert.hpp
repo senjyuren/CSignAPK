@@ -23,7 +23,6 @@ private:
     constexpr static Jint LIMIT_NAME_SIZE    = 64;
     constexpr static Jint LIMIT_NAME_EX_SIZE = 64;
 
-    constexpr static Jchar DEFAULT_DIR[]  = "/META-INF";
     constexpr static Jchar DEFAULT_NAME[] = "/CERT.SF";
 
     constexpr static Jchar DEFAULT_TEMPLATE_HEAD[]           =
@@ -41,10 +40,6 @@ private:
     Builder                          *mBuilder;
     std::list<APKSignedCertBlockI *> &mBlocks;
     std::string                      &mOutPath;
-
-    std::string mRootDir;
-    std::string mPathFile;
-    std::string mZipPathFile;
 
     std::fstream mOutFile;
     std::string  mFileHead;
@@ -126,9 +121,6 @@ APKSignedCert::APKSignedCert(Builder *builder)
         : mBuilder{builder}
           , mBlocks{builder->mBlocks}
           , mOutPath{builder->mOutPath}
-          , mRootDir{}
-          , mPathFile{}
-          , mZipPathFile{}
           , mOutFile{}
           , mFileHead{}
           , mFileContent{}
@@ -136,17 +128,9 @@ APKSignedCert::APKSignedCert(Builder *builder)
           , mLimitName{}
           , mLimitNameEx{}
 {
-    this->mRootDir.append(this->mOutPath)
-            .append(DEFAULT_DIR);
-
-    if (!std::filesystem::exists(this->mRootDir))
-        std::filesystem::create_directory(this->mRootDir);
-
-    this->mPathFile = this->mRootDir;
-    this->mPathFile.append(DEFAULT_NAME);
-
+    this->mOutPath.append(DEFAULT_NAME);
     this->mOutFile.open(
-            this->mPathFile.c_str(),
+            this->mOutPath.c_str(),
             (static_cast<Juint>(std::ios::in)
              | static_cast<Juint>(std::ios::out)
              | static_cast<Juint>(std::ios::trunc)
@@ -157,7 +141,6 @@ APKSignedCert::APKSignedCert(Builder *builder)
 APKSignedCert::~APKSignedCert()
 {
     this->mOutFile.close();
-    std::filesystem::remove(this->mPathFile);
     delete (this->mBuilder);
 }
 
@@ -211,15 +194,15 @@ void APKSignedCert::signStreamEnd()
     this->mOutFile.flush();
     this->mOutFile.clear();
     this->mOutFile.seekg(std::ios::beg);
-    this->notifyContentStart(this->mPathFile.c_str());
+    this->notifyContentStart(this->mOutPath.c_str());
 
     do
     {
         this->mOutFile.read(this->mWriteCache, sizeof(this->mWriteCache));
-        this->notifyContentUpdate(this->mPathFile.c_str(), this->mWriteCache, this->mOutFile.gcount());
+        this->notifyContentUpdate(this->mOutPath.c_str(), this->mWriteCache, this->mOutFile.gcount());
     } while (this->mOutFile.gcount() == sizeof(this->mWriteCache));
 
-    this->notifyContentEnd(this->mPathFile.c_str());
+    this->notifyContentEnd(this->mOutPath.c_str());
 }
 
 void APKSignedCert::notifyContentStart(const Jchar *name)
@@ -242,8 +225,7 @@ void APKSignedCert::notifyContentEnd(const Jchar *name)
 
 const std::string &APKSignedCert::getPath()
 {
-    auto &&point = this->mPathFile.find(DEFAULT_DIR) + 1;
-    return (this->mZipPathFile = this->mPathFile.substr(point));
+    return this->mOutPath;
 }
 
 }

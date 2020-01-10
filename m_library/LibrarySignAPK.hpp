@@ -4,6 +4,10 @@
 #define CSIGNAPK_LIBRARYSIGNAPK_HPP
 
 #include "LibrarySignAPK.h"
+
+#include "impl/LibraryImplPKCS7Sign.hpp"
+#include "impl/LibraryImplX509Sign.hpp"
+#include "impl/LibraryImplX509ReqSign.hpp"
 #include "impl/LibraryImplSignAPK.hpp"
 
 namespace m
@@ -12,9 +16,9 @@ namespace m
 inline namespace apk
 {
 
-LibrarySignAPKI *LibrarySignAPK::build()
+LibrarySignAPKI *LibrarySignAPK::build(LibrarySignAPKExtSignI *v)
 {
-    return new LibraryImplSignAPK();
+    return new LibraryImplSignAPK(v);
 }
 
 void LibrarySignAPK::destroy(LibrarySignAPKI *v)

@@ -164,7 +164,6 @@ void UtilsZipUnPackZLIB::streamIntercept(const Jchar *in, const Jchar *out)
             } while (readLen == sizeof(this->mReadCache));
 
             this->notifyEnd(this->mFileName, outPath.c_str());
-            outFile.flush();
             outFile.close();
             unzCloseCurrentFile(unzFile);
         }

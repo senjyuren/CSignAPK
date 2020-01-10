@@ -15,8 +15,10 @@ class UtilsZipPackZLIB
         : public UtilsZipPackI
 {
 private:
-    constexpr static Jint  READ_CACHE_SIZE         = 2048;
-    constexpr static Jchar DEFAULT_OUT_FILE_NAME[] = "/signed.apk";
+    constexpr static Jint  READ_CACHE_SIZE           = 2048;
+    constexpr static Jchar META_INF_DIR[]            = "META-INF";
+    constexpr static Jchar DEFAULT_OUT_FILE_NAME[]   = "/signed.apk";
+    constexpr static Jchar DEFAULT_APK_FILE_SUFFIX[] = ".signed.apk";
 
     std::vector<std::string> &mZipAllFilePath;
     std::vector<std::string> &mRootAllFilePath;
@@ -49,21 +51,27 @@ void UtilsZipPackZLIB::pack(const Jchar *in, const Jchar *out)
 {
     Jint i = 0;
 
-    std::string   inPath(in);
-    std::string   ouPath(out);
-    std::ifstream inFile;
+    std::string           inPath(in);
+    std::string           ouPath;
+    std::filesystem::path outFormat(out);
+    std::ifstream         inFile;
 
     zipFile      zipFile = nullptr;
     zip_fileinfo zipFileInfo;
 
-    ouPath.append(DEFAULT_OUT_FILE_NAME);
+    if (outFormat.has_extension())
+        ouPath.append(outFormat.replace_extension(DEFAULT_APK_FILE_SUFFIX).string());
+    else
+        ouPath.append(outFormat.append(DEFAULT_OUT_FILE_NAME).string());
+
     zipFile = zipOpen(ouPath.c_str(), APPEND_STATUS_CREATE);
     if (zipFile == nullptr)
         return;
 
     for (auto &v : this->mExtraFiles)
     {
-        this->mZipAllFilePath.push_back(v);
+        auto &&position = v.find(META_INF_DIR);
+        this->mZipAllFilePath.push_back(v.substr(position));
         this->mRootAllFilePath.push_back(v);
     }
 

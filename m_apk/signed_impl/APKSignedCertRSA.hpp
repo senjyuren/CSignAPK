@@ -16,15 +16,10 @@ public:
     class Builder;
 
 private:
-    constexpr static Jchar DEFAULT_DIR[]  = "/META-INF";
     constexpr static Jchar DEFAULT_NAME[] = "/CERT.RSA";
 
     Builder     *mBuilder;
     std::string &mOutPath;
-
-    std::string mRootDir;
-    std::string mPathFile;
-    std::string mZipPathFile;
 
     std::fstream mOutFile;
 
@@ -76,22 +71,11 @@ std::shared_ptr<APKSignedCertRSA> APKSignedCertRSA::Builder::build()
 APKSignedCertRSA::APKSignedCertRSA(Builder *builder)
         : mBuilder{builder}
           , mOutPath{builder->mOutPath}
-          , mRootDir{}
-          , mPathFile{}
-          , mZipPathFile{}
           , mOutFile{}
 {
-    this->mRootDir.append(this->mOutPath)
-            .append(DEFAULT_DIR);
-
-    if (!std::filesystem::exists(this->mRootDir))
-        std::filesystem::create_directory(this->mRootDir);
-
-    this->mPathFile = this->mRootDir;
-    this->mPathFile.append(DEFAULT_NAME);
-
+    this->mOutPath.append(DEFAULT_NAME);
     this->mOutFile.open(
-            this->mPathFile.c_str(),
+            this->mOutPath.c_str(),
             (static_cast<Juint>(std::ios::in)
              | static_cast<Juint>(std::ios::out)
              | static_cast<Juint>(std::ios::trunc)
@@ -102,7 +86,6 @@ APKSignedCertRSA::APKSignedCertRSA(Builder *builder)
 APKSignedCertRSA::~APKSignedCertRSA()
 {
     this->mOutFile.close();
-    std::filesystem::remove(this->mPathFile);
     delete (this->mBuilder);
 }
 
@@ -123,8 +106,7 @@ void APKSignedCertRSA::signStreamEnd()
 
 const std::string &APKSignedCertRSA::getPath()
 {
-    auto &&point = this->mPathFile.find(DEFAULT_DIR) + 1;
-    return (this->mZipPathFile = this->mPathFile.substr(point));
+    return this->mOutPath;
 }
 
 }
